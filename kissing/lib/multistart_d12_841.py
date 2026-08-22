@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -24,6 +23,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from optimizer_env import clean_optimizer_env  # noqa: E402
 
 
 @dataclass
@@ -67,46 +69,32 @@ def verify_candidate(path: Path) -> tuple[float, float, str]:
     return max_inner, norm_error, signature
 
 
-# Every optimizer flag this driver depends on.  Inheriting the ambient
-# environment silently reinterpreted the run: a leftover KISS_FAITHFUL=1 makes
-# every default 120000-step worker fail riesz.c's exact-35000-step guard, and
-# KISS_LOSS=ip changes the objective without changing the summary.  Anything
-# listed here is pinned or cleared, never inherited.
-OPTIMIZER_FLAGS = (
-    "KISS_FAITHFUL", "KISS_FAITHFUL_EXTRA", "KISS_LOSS", "KISS_SOLVER",
-    "KISS_JIT", "KISS_S0", "KISS_SMUL", "KISS_SMAX", "KISS_M", "KISS_INNER",
-    "KISS_POLISH", "KISS_ADAM_POLISH", "KISS_ADAM_POLISH_ONLY",
-    "KISS_ADAM_POLISH_STEPS", "KISS_ADAM_POLISH_STAGES",
-    "KISS_ADAM_POLISH_LR_SCALE", "KISS_ADAM_RAW", "KISS_ADAM_EPS",
-    "KISS_ADAM_BASE_START", "KISS_ADAM_BASE_END", "KISS_PENALTY_ONLY",
-    "KISS_PENALTY_TARGET", "KISS_PROFILE", "KISS_SELFTEST", "KISS_THREADS",
-    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-)
-
-
 def optimizer_env(spec: dict[str, Any]) -> dict[str, str]:
-    """Worker environment with every optimizer flag pinned, not inherited."""
-    env = {k: v for k, v in os.environ.items() if k not in OPTIMIZER_FLAGS}
-    env.update(
-        {
-            "KISS_THREADS": str(spec["threads"]),
-            "OMP_NUM_THREADS": str(spec["threads"]),
-            "OPENBLAS_NUM_THREADS": "1",
-            "KISS_SOLVER": "adam",
-            "KISS_LOSS": "riesz",
-            "KISS_FAITHFUL": "0",
-            "KISS_ADAM_RAW": "0",
-            "KISS_ADAM_POLISH": "0",
-            "KISS_ADAM_POLISH_ONLY": "0",
-            "KISS_PENALTY_ONLY": "0",
-            "KISS_JIT": str(spec["jit"]),
-        }
-    )
+    """Worker environment with every optimizer flag pinned, not inherited.
+
+    Inheriting the ambient environment silently reinterpreted the run: a
+    leftover KISS_FAITHFUL=1 makes every default 120000-step worker fail
+    riesz.c's exact-35000-step guard, and KISS_LOSS=ip changes the objective
+    without changing the summary.
+    """
+    settings = {
+        "KISS_THREADS": str(spec["threads"]),
+        "OMP_NUM_THREADS": str(spec["threads"]),
+        "OPENBLAS_NUM_THREADS": "1",
+        "KISS_SOLVER": "adam",
+        "KISS_LOSS": "riesz",
+        "KISS_FAITHFUL": "0",
+        "KISS_ADAM_RAW": "0",
+        "KISS_ADAM_POLISH": "0",
+        "KISS_ADAM_POLISH_ONLY": "0",
+        "KISS_PENALTY_ONLY": "0",
+        "KISS_JIT": str(spec["jit"]),
+    }
     if spec["base_end"] is not None:
-        env["KISS_ADAM_BASE_END"] = str(spec["base_end"])
+        settings["KISS_ADAM_BASE_END"] = str(spec["base_end"])
     if not spec["polish"] or spec["base_end"] is not None:
-        env["KISS_POLISH"] = "0"
-    return env
+        settings["KISS_POLISH"] = "0"
+    return clean_optimizer_env(**settings)
 
 
 def run_one(spec: dict[str, Any]) -> Result:

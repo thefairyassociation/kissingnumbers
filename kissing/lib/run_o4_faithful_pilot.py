@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -23,9 +22,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from o4_breadth import make_seed, write_seed  # noqa: E402
+from optimizer_env import clean_optimizer_env  # noqa: E402
 
 STAGE_RE = re.compile(r"^s=([0-9.]+)\s+max=([0-9.eE+-]+).*nfev=(\d+)", re.MULTILINE)
-EXTRA_RE = re.compile(r"uniform-random hypercube extra index=(\d+)")
+# The extra may be uniform-random or pinned via KISS_FAITHFUL_EXTRA.
+EXTRA_RE = re.compile(r"(?:uniform-random|pinned) hypercube extra index=(\d+)")
 
 
 def _git_head() -> str | None:
@@ -58,22 +59,19 @@ def run_one(
         extra_mode="uniform-random",
     )
     write_seed(seed_file, X, seed_metadata)
-    env = os.environ.copy()
-    env.update(
-        {
-            "KISS_FAITHFUL": "1",
-            "KISS_SOLVER": "adam",
-            "KISS_LOSS": "riesz",
-            "KISS_POLISH": "0",
-            "KISS_ADAM_BASE_END": str(base_end),
-            "KISS_THREADS": str(threads),
-            "OMP_NUM_THREADS": str(threads),
-            "OPENBLAS_NUM_THREADS": "1",
-        }
+    # Build the environment explicitly rather than inheriting it: faithful mode
+    # ignores legacy jitter, and an ambient KISS_FAITHFUL_EXTRA would pin every
+    # arm of the pilot to the same hypercube extra, defeating the comparison.
+    env = clean_optimizer_env(
+        KISS_FAITHFUL="1",
+        KISS_SOLVER="adam",
+        KISS_LOSS="riesz",
+        KISS_POLISH="0",
+        KISS_ADAM_BASE_END=str(base_end),
+        KISS_THREADS=str(threads),
+        OMP_NUM_THREADS=str(threads),
+        OPENBLAS_NUM_THREADS="1",
     )
-    # Faithful mode rejects/ignores legacy jitter; remove it so the command's
-    # environment documents the intended semantics unambiguously.
-    env.pop("KISS_JIT", None)
     command = [str(binary), "12", "841", "35000", str(seed), str(seed_file)]
     started = time.monotonic()
     proc = subprocess.run(command, env=env, text=True, capture_output=True)

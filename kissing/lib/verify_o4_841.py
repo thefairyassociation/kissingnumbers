@@ -61,7 +61,11 @@ def verify(path: Path) -> dict[str, object]:
     Y = X / norms[:, None]
     core_values = _upper(Y[:840])
     full_values = _upper(Y)
-    header = "\n".join(path.read_text().splitlines()[:4])
+    # Take the comment block, not a fixed number of lines: candidates now carry
+    # a solver-provenance line as well as the faithful metadata line.
+    header = "\n".join(
+        line for line in path.read_text().splitlines() if line.startswith("#")
+    )
     extra_match = EXTRA_RE.search(header)
     return {
         "file": str(path),
