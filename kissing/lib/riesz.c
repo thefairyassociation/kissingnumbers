@@ -36,15 +36,17 @@
  * behaviour.  In faithful mode the input seed supplies the exact 840-point
  * core, the final row is replaced by one uniform random hypercube extra, raw
  * Adam is forced, and the 35,000-step published schedule is used verbatim.
- * Set KISS_ADAM_POLISH=1 (or KISS_ADAM_POLISH_ONLY=1) to request the separate
- * authors' polish schedule; polish_lr[] already stores their *effective* rates,
- * i.e. their schedule after polish_841.py's own group["lr"]=lr/10, so no
- * further division is applied.  Faithful mode never falls through to penalty
- * polishing.
+ * Set KISS_ADAM_POLISH_ONLY=1 to run the separate authors' polish schedule;
+ * polish_lr[] already stores their *effective* rates, i.e. their schedule after
+ * polish_841.py's own group["lr"]=lr/10, so no further division is applied.
+ * Faithful mode never falls through to penalty polishing.
  *
- * The authors' %.10f Gram -> rank-12 eigendecomposition handoff is *not*
- * performed in C; run prepare_841_polish.py between the search and the polish.
- * Candidates written here always record gram_handoff=0.
+ * The authors' %.10f Gram -> rank-12 eigendecomposition handoff sits between
+ * their search and their polish, and is not implemented in C.  Faithful mode
+ * therefore refuses search-and-polish in one process; run
+ * prepare_841_polish.py in between.  gram_handoff=0 in a candidate header
+ * means only that *this process* did not perform it -- for a polish-only run
+ * the caller is responsible for having prepared the input.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -868,6 +870,22 @@ int main(int argc,char**argv){
             fprintf(stderr,"KISS_FAITHFUL is incompatible with KISS_PENALTY_ONLY\n");
             return 1;
         }
+        /* Search-then-polish in one process would polish the search's raw
+         * coordinates, skipping the authors' %.10f Gram -> rank-12
+         * eigendecomposition handoff.  That is a third protocol, neither their
+         * search nor their polish, so faithful mode refuses it rather than
+         * running it quietly.  The handoff is lossy and part of the source. */
+        if(env_flag("KISS_ADAM_POLISH") && !adam_polish_only){
+            fprintf(stderr,
+                "KISS_FAITHFUL cannot run search and polish in one process: that\n"
+                "would skip the authors' %%.10f Gram -> rank-12 handoff.  Run:\n"
+                "  1. KISS_FAITHFUL=1 <this binary> 12 841 35000 SEED SEEDFILE\n"
+                "  2. python3 kissing/lib/prepare_841_polish.py CANDIDATE \\\n"
+                "       --gram-out GRAM.txt --coords-out PREPARED.txt\n"
+                "  3. KISS_FAITHFUL=1 KISS_ADAM_POLISH_ONLY=1 <this binary> "
+                "12 841 35000 SEED PREPARED.txt\n");
+            return 1;
+        }
         if(!adam_polish_only && steps!=35000){
             fprintf(stderr,"KISS_FAITHFUL requires exactly 35000 search steps (got %ld)\n",steps);
             return 1;
@@ -1168,8 +1186,9 @@ int main(int argc,char**argv){
          * (retract every step), matching the authors' polish_841.py, so a
          * polish-only run has no raw-Adam phase at all.
          * gram_handoff=0 always: the authors' %.10f Gram -> rank-12
-         * eigendecomposition step is external (prepare_841_polish.py), so a
-         * candidate produced here has never been through it. */
+         * eigendecomposition step is external (prepare_841_polish.py), so this
+         * process never performed it.  A polish-only run may well have been
+         * handed a prepared input; C cannot tell, and does not claim to. */
         int search_ran = faithful_extra_randomized;
         if(search_ran)
             fprintf(f,"# faithful=1 raw_adam=1 jitter=0 search_stage_start=%d "

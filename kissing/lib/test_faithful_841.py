@@ -315,6 +315,62 @@ def check_polish_step_scale(binary: Path, prepared: Path, directory: Path) -> No
     )
 
 
+def check_combined_polish_refused(binary: Path, fixture: Path, directory: Path) -> None:
+    """Faithful mode must refuse search-and-polish in one process.
+
+    That path would polish the search's raw coordinates and skip the authors'
+    lossy %.10f Gram -> rank-12 handoff, which is a third protocol rather than
+    either of theirs.  Also checks that KISS_ADAM_POLISH=0 is not read as a
+    request, which the old getenv()!=NULL parsing got wrong.
+    """
+    seed_file = directory / "combined_guard_seed.txt"
+    seed_file.write_text(fixture.read_text())
+    base = {
+        "KISS_FAITHFUL": "1",
+        "KISS_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        # keep any accidental run short if the guard ever regresses
+        "KISS_ADAM_BASE_END": "1",
+        "KISS_ADAM_POLISH_STEPS": "1",
+        "KISS_ADAM_POLISH_STAGES": "1",
+    }
+
+    env = os.environ.copy()
+    env.update(base, KISS_ADAM_POLISH="1")
+    proc = subprocess.run(
+        [str(binary), "12", "841", "35000", "994", str(seed_file)],
+        text=True, capture_output=True, env=env, check=False,
+    )
+    if proc.returncode == 0:
+        raise AssertionError(
+            "KISS_FAITHFUL=1 KISS_ADAM_POLISH=1 ran search and polish in one "
+            "process instead of refusing the skipped Gram handoff"
+        )
+    if "Gram -> rank-12 handoff" not in proc.stderr:
+        raise AssertionError(
+            f"refusal did not explain the missing handoff:\n{proc.stderr}"
+        )
+    if Path(f"{seed_file}.riesz.s994.out").exists():
+        raise AssertionError("refused run still serialized a candidate")
+
+    # KISS_ADAM_POLISH=0 is not a polish request and must not trip the guard.
+    env = os.environ.copy()
+    env.update(base, KISS_ADAM_POLISH="0", KISS_POLISH="0")
+    proc = subprocess.run(
+        [str(binary), "12", "841", "35000", "995", str(seed_file)],
+        text=True, capture_output=True, env=env, check=False,
+    )
+    if proc.returncode != 0:
+        raise AssertionError(
+            f"KISS_ADAM_POLISH=0 was treated as a polish request:\n{proc.stderr}"
+        )
+    print(
+        "combined search+polish refused with the handoff recipe; "
+        "KISS_ADAM_POLISH=0 correctly not a request"
+    )
+
+
 def check_nonfinite_abort(binary: Path, fixture: Path, directory: Path) -> None:
     """Ensure malformed and overflowed faithful polish states cannot serialize."""
     env = os.environ.copy()
@@ -432,6 +488,7 @@ def main() -> None:
             check_polish_step_scale(
                 args.binary, directory / "authors_prepared_coords.txt", directory
             )
+            check_combined_polish_refused(args.binary, args.coordinates, directory)
             check_nonfinite_abort(args.binary, args.coordinates, directory)
     print("PASS: faithful 841 regression checks")
 

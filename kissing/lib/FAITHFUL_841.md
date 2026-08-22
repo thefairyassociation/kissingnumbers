@@ -27,8 +27,11 @@ Faithful search mode:
   `8:1000,16:1000,32:1000,64:2000,128:2000,256:2000,512:2000,
   1024:4000,2048:4000,4096:4000,10000:4000,20000:4000,40000:4000`;
 * retains every term in the Riesz log-sum-exp, matching the authors' stable
-  `torch.logsumexp` rather than the legacy relative-weight cutoff; and
-* never enters the legacy threshold-penalty polish.
+  `torch.logsumexp` rather than the legacy relative-weight cutoff;
+* never enters the legacy threshold-penalty polish; and
+* refuses to run search and polish in one process, because that would polish
+  the search's raw coordinates and skip the authors' lossy `%.10f` Gram
+  handoff.  The polish is a separate invocation -- see below.
 
 The C executable is a one-candidate CPU mode.  It does not reproduce the
 authors' 512-way batched gradient or 100 macro repeats; those require the
@@ -43,26 +46,34 @@ updates are labelled full. Faithful mode rejects nonzero
 `KISS_ADAM_BASE_START`, because jumping to a later stage with fresh Adam
 moments is not a continuation of the published optimizer state.
 
+### The search -> polish handoff is three steps
+
 The authors' search-to-polish handoff is not a direct-coordinate handoff.  The
 search writes the Gram matrix at `%.10f`; `polish_841.py` reloads that decimal
-matrix, symmetrises it, reconstructs rank-12 coordinates by eigendecomposition,
-and normalises the rows.  Prepare that handoff explicitly before using the C
-polish-only path:
+text, symmetrises it, reconstructs rank-12 coordinates by eigendecomposition,
+and normalises the rows.  The round-trip is lossy and part of the protocol, so
+it cannot be skipped.  `riesz.c` does not implement it and
+refuses `KISS_FAITHFUL=1 KISS_ADAM_POLISH=1` without
+`KISS_ADAM_POLISH_ONLY=1`:
 
 ```bash
-python3 kissing/lib/prepare_841_polish.py candidate.txt \
-  --gram-out /tmp/candidate_gram_10dp.txt \
-  --coordinates-out /tmp/candidate_polish_coords.txt
-```
+# 1. search
+KISS_FAITHFUL=1 ./kissing/lib/riesz2 12 841 35000 51 /tmp/cl840_841.txt
 
-Then run the separate authors-style polish on the reconstructed coordinates
-without starting a search:
+# 2. the authors' %.10f Gram -> rank-12 handoff
+python3 kissing/lib/prepare_841_polish.py \
+  /tmp/cl840_841.txt.riesz.s51.out \
+  --gram-out /tmp/gram_10dp.txt \
+  --coordinates-out /tmp/prepared.txt
 
-```bash
-KISS_FAITHFUL=1 KISS_ADAM_POLISH=1 KISS_ADAM_POLISH_ONLY=1 \
+# 3. polish the prepared coordinates
+KISS_FAITHFUL=1 KISS_ADAM_POLISH_ONLY=1 \
 KISS_THREADS=4 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 \
-./kissing/lib/riesz2 12 841 35000 51 /tmp/candidate_polish_coords.txt
+./kissing/lib/riesz2 12 841 35000 51 /tmp/prepared.txt
 ```
+
+A candidate header records `gram_handoff=0` in every case: it means this
+process did not perform the handoff, not that the input was unprepared.
 
 Faithful polish uses the authors' `1e-14` distance clamp.  Their `lr/10`
 factor is already folded into `polish_lr[]` in `riesz.c`, which stores the
