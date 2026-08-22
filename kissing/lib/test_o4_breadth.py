@@ -86,18 +86,15 @@ def check_seed_roundtrip() -> None:
 
 
 def check_source_contract() -> None:
-    source = (ROOT / "kissing" / "lib" / "riesz.c").read_text()
-    required = {
-        "faithful mode": "KISS_FAITHFUL",
-        "exact step guard": "requires exactly 35000 search steps",
-        "raw Adam": "int adam_raw=faithful_mode ||",
-        "uniform extra record": "uniform-random hypercube extra",
-        "extra output record": "extra_mode=uniform-random",
-        "no faithful penalty": "if(!faithful_mode &&",
-    }
-    for label, needle in required.items():
-        if needle not in source:
-            raise AssertionError(f"missing C source contract: {label}")
+    """Reuse the faithful-841 contract rather than keeping a second copy.
+
+    This file used to duplicate the needle list, which meant it drifted from
+    the optimizer independently and repeated the same non-unique needles.
+    """
+    sys.path.insert(0, str(ROOT / "kissing" / "lib"))
+    from test_faithful_841 import check_source_contract as faithful_contract
+
+    faithful_contract(ROOT / "kissing" / "lib" / "riesz.c")
     print("faithful C source contract: PASS")
 
 
@@ -134,7 +131,18 @@ def check_binary_smoke(binary: Path) -> None:
         output = Path(f"{seed_path}.riesz.s19.out")
         if not output.exists():
             raise AssertionError("faithful binary did not write candidate")
-        metadata_line = output.read_text().splitlines()[1]
+        # Find the faithful header by prefix rather than by line number: the
+        # candidate now also carries a solver/loss provenance line.
+        header = [
+            line for line in output.read_text().splitlines()
+            if line.startswith("#")
+        ]
+        faithful_lines = [line for line in header if line.startswith("# faithful=1")]
+        if len(faithful_lines) != 1:
+            raise AssertionError(
+                f"expected exactly one faithful header line, got {len(faithful_lines)}"
+            )
+        metadata_line = faithful_lines[0]
         if "extra_mode=uniform-random" not in metadata_line:
             raise AssertionError("faithful output did not record extra mode")
         for token in (
@@ -142,9 +150,15 @@ def check_binary_smoke(binary: Path) -> None:
             "search_stage_end=4",
             "search_updates=5000",
             "full_schedule=0",
+            # a search-only run must say so, and must not claim the authors'
+            # %.10f Gram handoff that only prepare_841_polish.py performs
+            "polish=0",
+            "gram_handoff=0",
         ):
             if token not in metadata_line:
                 raise AssertionError(f"faithful partial-run metadata missing {token}")
+        if not any(line.startswith("# solver=") for line in header):
+            raise AssertionError("candidate is missing its solver provenance line")
     print("faithful binary stage-4 smoke: PASS")
 
 

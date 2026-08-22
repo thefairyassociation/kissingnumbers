@@ -1,8 +1,12 @@
 # Faithful N=841 calibration mode
 
-`riesz.c` keeps its historical seeded CPU behaviour by default.  The
-published Takhanov--Assylbekov--Yun search semantics are available explicitly
-with `KISS_FAITHFUL=1`:
+`riesz.c` keeps its historical seeded CPU behaviour by default: the unmarked
+binary runs the geometric-homotopy gradient descent that the old committed
+`riesz2` implemented, and `KISS_SOLVER=lbfgs` / `KISS_SOLVER=adam` are opt-in.
+Every legacy script in `kissing/lib` pins `KISS_SOLVER=gd` explicitly so none
+of them depends on that default.  The published Takhanov--Assylbekov--Yun
+search semantics are available explicitly with `KISS_FAITHFUL=1`, which
+selects Adam on its own:
 
 ```bash
 make -C kissing/lib riesz2
@@ -60,8 +64,15 @@ KISS_THREADS=4 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 \
 ./kissing/lib/riesz2 12 841 35000 51 /tmp/candidate_polish_coords.txt
 ```
 
-Faithful polish uses the authors' `1e-14` distance clamp and `lr/10` factor.
-Set `KISS_ADAM_POLISH_STEPS` and `KISS_ADAM_POLISH_STAGES` for a bounded run.
+Faithful polish uses the authors' `1e-14` distance clamp.  Their `lr/10`
+factor is already folded into `polish_lr[]` in `riesz.c`, which stores the
+effective rates `{5e-10, 2e-10, 1e-10, 5e-11, 2e-11}`; it is not applied a
+second time.  `test_faithful_841.py` measures the displacement of a single
+polish update to keep that honest.  Polish returns the final state of each
+stage, as `polish_841.py` does, so a bounded polish can report a slightly
+worse max-IP than its input -- that is the polished configuration, not a
+regression.  Set `KISS_ADAM_POLISH_STEPS` and `KISS_ADAM_POLISH_STAGES` for a
+bounded run.
 It runs the requested fixed schedule even when the input already has max-IP
 below `0.5`, matching the purpose of the authors' margin-improving polish.
 The preparer independently verifies both the decimal Gram and reconstructed

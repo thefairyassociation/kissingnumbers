@@ -53,7 +53,7 @@ reproduces that number.
 * Imported the reviewed BLAS/OpenMP engine and retained `KISS_SOLVER=gd` and
   `KISS_SOLVER=lbfgs`.
 * Added Adam with the exponent and learning-rate schedule published by
-  Takhanov–Assylbekov–Yun; Adam is the default calibration solver.
+  Takhanov–Assylbekov–Yun.  Adam is the solver this calibration uses (`run_d12_841.sh` sets `KISS_SOLVER=adam`); it is not `riesz.c`'s default, which is the legacy geometric-homotopy GD.
 * Added an automatic `scipy-openblas32` Makefile fallback without
   `-ffast-math` or `-Ofast`.
 * Removed tracked `riesz` / `riesz2` binaries so stale executables cannot

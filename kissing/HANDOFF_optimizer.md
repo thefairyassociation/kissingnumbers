@@ -154,24 +154,28 @@ seed/handoff tooling—not additional polishing of the current `0.5006` basin.
 
 ## Building where there is no OpenBLAS
 
-The container has no `libopenblas`, so `make -C kissing/lib riesz2` fails and the
-committed binary dies with `libopenblas.so.0: cannot open shared object file`.
-OpenBLAS ships inside numpy/scipy; its symbols are prefixed, so map them:
+`riesz`/`riesz2` are build products, not committed binaries. The `Makefile`
+prefers a system OpenBLAS via `pkg-config`, then falls back automatically to
+`scipy-openblas32`, whose symbols are prefixed and are remapped with `-D`
+flags. So on a container without `libopenblas` the whole build story is:
 
 ```bash
-pip install scipy-openblas32
-INC=$(python3 -c "import scipy_openblas32 as s; print(s.get_include_dir())")
-LIB=$(python3 -c "import scipy_openblas32 as s; print(s.get_lib_dir())")
-gcc -O3 -fopenmp -I$INC -include cblas.h \
-  -Dcblas_dgemm=scipy_cblas_dgemm   -Dcblas_dscal=scipy_cblas_dscal \
-  -Dcblas_ddot=scipy_cblas_ddot     -Dcblas_daxpy=scipy_cblas_daxpy \
-  -Dcblas_dcopy=scipy_cblas_dcopy   -Dcblas_dnrm2=scipy_cblas_dnrm2 \
-  -Dopenblas_set_num_threads=scipy_openblas_set_num_threads \
-  -o riesz2 riesz.c -L$LIB -lscipy_openblas -lm
-LD_LIBRARY_PATH=$LIB ./riesz2 13 300 4000 5     # sanity: should report feasible
+python3 -m pip install scipy-openblas32     # or install a system OpenBLAS
+make -C kissing/lib riesz-tools             # builds riesz and riesz2
 ```
 
-Please make the `Makefile` fall back to this automatically.
+`make -C kissing/lib blas-check` reports whether the Riesz targets can be
+built without building anything.
+
+The BLAS-free verification tools (`mis8`, `clique`, `gclique`, `addable`,
+`opt`, `opt2`, `signmis`) never needed OpenBLAS and build on their own:
+
+```bash
+make -C kissing/lib verify-tools
+```
+
+`bash kissing/lib/selftest.sh` builds `riesz2` when it is missing, and skips
+only the BLAS engrad check -- still passing the rest -- if it cannot.
 
 ## Where the remaining speed is (it is not more BLAS)
 

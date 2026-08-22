@@ -67,6 +67,48 @@ def verify_candidate(path: Path) -> tuple[float, float, str]:
     return max_inner, norm_error, signature
 
 
+# Every optimizer flag this driver depends on.  Inheriting the ambient
+# environment silently reinterpreted the run: a leftover KISS_FAITHFUL=1 makes
+# every default 120000-step worker fail riesz.c's exact-35000-step guard, and
+# KISS_LOSS=ip changes the objective without changing the summary.  Anything
+# listed here is pinned or cleared, never inherited.
+OPTIMIZER_FLAGS = (
+    "KISS_FAITHFUL", "KISS_FAITHFUL_EXTRA", "KISS_LOSS", "KISS_SOLVER",
+    "KISS_JIT", "KISS_S0", "KISS_SMUL", "KISS_SMAX", "KISS_M", "KISS_INNER",
+    "KISS_POLISH", "KISS_ADAM_POLISH", "KISS_ADAM_POLISH_ONLY",
+    "KISS_ADAM_POLISH_STEPS", "KISS_ADAM_POLISH_STAGES",
+    "KISS_ADAM_POLISH_LR_SCALE", "KISS_ADAM_RAW", "KISS_ADAM_EPS",
+    "KISS_ADAM_BASE_START", "KISS_ADAM_BASE_END", "KISS_PENALTY_ONLY",
+    "KISS_PENALTY_TARGET", "KISS_PROFILE", "KISS_SELFTEST", "KISS_THREADS",
+    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+)
+
+
+def optimizer_env(spec: dict[str, Any]) -> dict[str, str]:
+    """Worker environment with every optimizer flag pinned, not inherited."""
+    env = {k: v for k, v in os.environ.items() if k not in OPTIMIZER_FLAGS}
+    env.update(
+        {
+            "KISS_THREADS": str(spec["threads"]),
+            "OMP_NUM_THREADS": str(spec["threads"]),
+            "OPENBLAS_NUM_THREADS": "1",
+            "KISS_SOLVER": "adam",
+            "KISS_LOSS": "riesz",
+            "KISS_FAITHFUL": "0",
+            "KISS_ADAM_RAW": "0",
+            "KISS_ADAM_POLISH": "0",
+            "KISS_ADAM_POLISH_ONLY": "0",
+            "KISS_PENALTY_ONLY": "0",
+            "KISS_JIT": str(spec["jit"]),
+        }
+    )
+    if spec["base_end"] is not None:
+        env["KISS_ADAM_BASE_END"] = str(spec["base_end"])
+    if not spec["polish"] or spec["base_end"] is not None:
+        env["KISS_POLISH"] = "0"
+    return env
+
+
 def run_one(spec: dict[str, Any]) -> Result:
     seed = int(spec["seed"])
     seedfile = Path(spec["seedfile"])
@@ -85,20 +127,7 @@ def run_one(spec: dict[str, Any]) -> Result:
         except Exception:
             pass
 
-    env = os.environ.copy()
-    env.update(
-        {
-            "KISS_THREADS": str(spec["threads"]),
-            "OMP_NUM_THREADS": str(spec["threads"]),
-            "OPENBLAS_NUM_THREADS": "1",
-            "KISS_SOLVER": "adam",
-            "KISS_JIT": str(spec["jit"]),
-        }
-    )
-    if spec["base_end"] is not None:
-        env["KISS_ADAM_BASE_END"] = str(spec["base_end"])
-    if not spec["polish"] or spec["base_end"] is not None:
-        env["KISS_POLISH"] = "0"
+    env = optimizer_env(spec)
     command = [
         str(spec["binary"]), "12", "841", str(spec["steps"]),
         str(seed), str(seedfile),
@@ -132,20 +161,42 @@ def run_one(spec: dict[str, Any]) -> Result:
     )
 
 
+def file_identity(path: Path) -> str:
+    """Content hash of an input, so resuming cannot silently change it."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()[:20]
+
+
+def run_settings(args: argparse.Namespace) -> dict[str, Any]:
+    """Everything that defines the experiment.
+
+    The seed file and the optimizer binary are part of this: without them,
+    reusing an outdir with a different seed or a rebuilt binary skipped the
+    finished seeds and reported their old verified maxima as results of the
+    new experiment.
+    """
+    return {
+        "steps": args.steps,
+        "jit": args.jit,
+        "threads_per_worker": args.threads,
+        "workers": args.workers,
+        "keep_threshold": args.keep_threshold,
+        "base_end": args.base_end,
+        "polish": args.polish,
+        "seedfile_sha256": file_identity(args.seedfile),
+        "binary_sha256": file_identity(args.binary),
+    }
+
+
 def write_summary(path: Path, args: argparse.Namespace, results: list[Result]) -> None:
     ordered = sorted(results, key=lambda result: result.seed)
     valid = [r for r in ordered if r.verified_max_inner is not None]
     payload = {
         "benchmark": {"dimension": 12, "count": 841, "threshold": 0.5},
-        "settings": {
-            "steps": args.steps,
-            "jit": args.jit,
-            "threads_per_worker": args.threads,
-            "workers": args.workers,
-            "keep_threshold": args.keep_threshold,
-            "base_end": args.base_end,
-            "polish": args.polish,
-        },
+        "settings": run_settings(args),
         "completed": len(ordered),
         "best_verified_max_inner": (
             min(r.verified_max_inner for r in valid) if valid else None
@@ -196,23 +247,20 @@ def main() -> None:
     args.outdir.mkdir(parents=True, exist_ok=True)
     summary_path = args.outdir / "summary.json"
 
-    expected_settings = {
-        "steps": args.steps,
-        "jit": args.jit,
-        "threads_per_worker": args.threads,
-        "workers": args.workers,
-        "keep_threshold": args.keep_threshold,
-        "base_end": args.base_end,
-        "polish": args.polish,
-    }
+    expected_settings = run_settings(args)
     results: list[Result] = []
     if summary_path.exists():
         try:
             previous = json.loads(summary_path.read_text())
-            if previous.get("settings") != expected_settings:
+            previous_settings = previous.get("settings", {})
+            if previous_settings != expected_settings:
+                differing = sorted(
+                    key for key in set(previous_settings) | set(expected_settings)
+                    if previous_settings.get(key) != expected_settings.get(key)
+                )
                 parser.error(
-                    f"existing {summary_path} has different settings; "
-                    "choose another outdir"
+                    f"existing {summary_path} was written with different "
+                    f"settings ({', '.join(differing)}); choose another outdir"
                 )
             results = [Result(**item) for item in previous.get("results", [])]
         except (json.JSONDecodeError, TypeError) as exc:
@@ -229,7 +277,20 @@ def main() -> None:
         "base_end": args.base_end,
         "polish": args.polish,
     }
-    completed_seeds = {result.seed for result in results}
+    # A nonzero exit or an unreadable candidate is a failure to retry, not a
+    # finished basin.  Keeping those in the skip set meant a resumed search
+    # silently abandoned every seed that had errored once.
+    completed_seeds = {
+        result.seed for result in results if result.verified_max_inner is not None
+    }
+    retrying = [result for result in results if result.verified_max_inner is None]
+    if retrying:
+        print(
+            f"retrying {len(retrying)} seed(s) with no verified candidate: "
+            + ", ".join(str(result.seed) for result in sorted(
+                retrying, key=lambda r: r.seed))
+        )
+        results = [r for r in results if r.verified_max_inner is not None]
     specs = [
         {**common, "seed": seed}
         for seed in range(args.start_seed, args.start_seed + args.runs)

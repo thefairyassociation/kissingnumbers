@@ -222,7 +222,10 @@ Two continuation schemes are implemented and run against dimension 13:
 * `lib/riesz.c` — Riesz-energy continuation, minimising `sum ||x_i - x_j||^{-s}`
   for a geometrically increasing exponent starting near the logarithmic energy.
   This is the scheme Takhanov–Assylbekov–Yun used to get 841 from the classical
-  840 in dimension 12.
+  840 in dimension 12.  The unmarked binary runs the geometric-homotopy gradient
+  descent described here; `KISS_SOLVER=lbfgs` and `KISS_SOLVER=adam` select the
+  BLAS L-BFGS and the published Adam schedule instead, and `KISS_FAITHFUL=1`
+  runs the source-faithful N=841 protocol (`lib/FAITHFUL_841.md`).
 
 Both are driven by `lib/shake2.py`, which removes k points and re-inserts k+1 at
 the **deepest holes** of what remains (found by LP) rather than at random; that
@@ -238,7 +241,12 @@ provably exists, since Takhanov et al. reached 0.499999937751:
 | optimiser | dim 12, N = 841 (solution exists) | dim 13, N = 1155 (unknown) |
 | --- | --- | --- |
 | penalty continuation, crude step rule | ~0.52 | 0.5088 |
-| Riesz continuation + Armijo line search | **0.50519** | 0.5107 |
+| Riesz continuation + Armijo line search (`KISS_SOLVER=gd`, the default) | **0.50519** | 0.5107 |
+| BLAS engine + Adam on the published schedule (`KISS_SOLVER=adam`) | **0.500477** | not run |
+
+The Adam row is the newer calibration; see `CALIBRATION_optimizer.md` for how it
+was measured and `lib/FAITHFUL_841.md` for the opt-in source-faithful protocol.
+Both remain above 0.5.
 
 The two columns are close, and the left one is a case where the answer is *yes*.
 So the optimiser here simply cannot resolve the question: a dimension-13
@@ -294,6 +302,7 @@ optimiser's own claim.
 | `lib/signmis.c` | dense-bitset MIS over (support, sign) pairs for a fixed support family |
 | `lib/clique.c` | max clique on k-subsets with prescribed pairwise intersections |
 | `lib/gclique.c` | max clique on an arbitrary graph |
+| `lib/Makefile` | builds everything; `make riesz-tools` needs OpenBLAS (or `pip install scipy-openblas32`), `make verify-tools` does not, `make blas-check` reports which |
 | `lib/gcode.py`, `lib/pipeline.py` | the global-linear-code framework and the F_2 coset solver |
 | `lib/analyze_g14.py`, `lib/g14_global.py` | decoding Ganzhinov's dim-14 configuration |
 | `dim13/v2/`, `dim14/` | the dimension-specific searches |

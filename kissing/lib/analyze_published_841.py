@@ -13,7 +13,12 @@ from collections import Counter
 from pathlib import Path
 import sys
 
+import tempfile
+
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from prepare_841_polish import decimal_gram_reconstruct  # noqa: E402
 
 
 EXPECTED_MAX = 0.4999999377514321
@@ -145,15 +150,19 @@ def main() -> None:
     max_ip = float(upper.max())
     where = np.argwhere(np.triu(gram, 1) == max_ip)[0].astype(int).tolist()
     eig = np.linalg.eigvalsh((gram + gram.T) / 2)
-    # This is the authors' search-to-polish handoff: Gram serialized at
-    # %.10f, symmetrized, truncated to rank 12, then row-normalized.
-    decimal_gram = np.round(gram, 10)
-    decimal_gram = (decimal_gram + decimal_gram.T) / 2
-    decimal_eig, decimal_vec = np.linalg.eigh(decimal_gram)
-    keep = np.argsort(decimal_eig)[::-1][:12]
-    reconstructed = decimal_vec[:, keep] * np.sqrt(np.maximum(decimal_eig[keep], 0))[None, :]
-    reconstructed /= np.linalg.norm(reconstructed, axis=1, keepdims=True)
-    reconstructed_max = float((reconstructed @ reconstructed.T)[np.triu_indices(841, 1)].max())
+    # The authors' search-to-polish handoff: Gram serialized at %.10f,
+    # symmetrized, truncated to rank 12, then row-normalized.  Run the real
+    # text round-trip from prepare_841_polish.py rather than a second inline
+    # copy of it, so this structural note and the polish input cannot drift.
+    # (np.round(gram, 10) agrees with the %.10f round-trip on every entry of
+    # this Gram, but it is not the same operation in general.)
+    with tempfile.TemporaryDirectory(prefix="published-841-") as handoff:
+        handoff_dir = Path(handoff)
+        _, reconstructed_max = decimal_gram_reconstruct(
+            points,
+            handoff_dir / "gram_10dp.txt",
+            handoff_dir / "reconstructed.txt",
+        )
     canonical = canonical_840(root)
     canonical_gram = canonical @ canonical.T
     natural_solution, natural_fit = procrustes(points[:840], canonical)

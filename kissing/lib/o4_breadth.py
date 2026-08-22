@@ -23,7 +23,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from scipy.linalg import expm
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "kissing" / "dim12"))
@@ -32,6 +31,24 @@ from constructions.clebsch840 import construction_840, vectors_as_float  # noqa:
 THEOREM_ROW_L1 = 3.0 / (2.0 * math.sqrt(2.0))
 DEFAULT_SAFETY_ROW_L1 = 1.055
 CORE_TOL = 2e-12
+
+
+
+def _expm_skew(a: np.ndarray) -> np.ndarray:
+    """Matrix exponential of a real skew-symmetric matrix, NumPy only.
+
+    ``1j * a`` is Hermitian for real skew-symmetric ``a``, so ``eigh`` gives an
+    exact unitary diagonalisation and ``exp`` is applied to the eigenvalues.
+    This avoids a SciPy dependency in the one new module that needed it.
+    """
+    hermitian = 1j * a
+    values, vectors = np.linalg.eigh(hermitian)
+    exponential = (vectors * np.exp(-1j * values)) @ vectors.conj().T
+    return np.real(exponential)
+
+
+def expm(a: np.ndarray) -> np.ndarray:
+    return _expm_skew(a)
 
 
 def _clebsch48() -> np.ndarray:
@@ -102,6 +119,16 @@ def deformed_core(A_left: np.ndarray, A_right: np.ndarray) -> np.ndarray:
 def _draw_o4(
     rng: np.random.Generator, scale: float, safety_row_l1: float
 ) -> tuple[np.ndarray, int]:
+    """Draw a near-identity orthogonal 4x4 factor.
+
+    ``expm`` of a skew-symmetric matrix always has determinant +1, so this
+    samples SO(4) and never the reflection component of O(4).  That is the
+    intended coverage: Theorem 2's family is a *near-identity* deformation and
+    every reflection is at distance ~2 from the identity, well outside the
+    row-L1 safety bound below.  The rejection loop also truncates the
+    distribution, so draws are not Haar on SO(4); they only need to be a
+    spread of admissible deformations, not a uniform sample.
+    """
     for attempt in range(1, 100_001):
         skew = rng.normal(size=(4, 4))
         skew -= skew.T

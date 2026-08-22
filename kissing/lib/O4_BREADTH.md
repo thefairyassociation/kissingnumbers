@@ -7,7 +7,8 @@ commit.  No `repo_audit` files were used or modified.
 ## Implementation
 
 * `o4_breadth.py` is repo-native and imports the construction from
-  `kissing/lib`, so it works from a normal checkout.  It generates canonical
+  `kissing/dim12/constructions/clebsch840.py`, so it works from a normal
+  checkout.  It needs only NumPy.  It generates canonical
   or Theorem-2 O(4)-deformed 840 cores, audits the complete core before adding
   row 841, and emits the existing plain-text `841 x 12` seed format.
 * The default extra mode is `uniform-random`, with a recorded hypercube index
