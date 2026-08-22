@@ -15,6 +15,7 @@ checks the complete coordinate -> normalise -> Gram path independently.
 from __future__ import annotations
 
 import argparse
+import re
 import os
 import subprocess
 import tempfile
@@ -76,23 +77,62 @@ def check_serialization(z: np.ndarray, directory: Path) -> None:
     print(f"serialization: 17-digit round-trip max-IP={max_ip:.17g}")
 
 
+# The authors' polish_841.py schedule is {5e-9, 2e-9, 1e-9, 5e-10, 2e-10} and it
+# then sets group["lr"] = lr/10, so the *effective* rates are these:
+AUTHORS_EFFECTIVE_POLISH_LR = (5e-10, 2e-10, 1e-10, 5e-11, 2e-11)
+
+
 def check_source_contract(source: Path) -> None:
+    """Cheap source greps.
+
+    These are a tripwire, not the real contract: the behavioural checks below
+    are what actually validate the protocol.  Every needle here must be unique
+    in the file, otherwise deleting the guard it stands for still leaves an
+    unrelated line matching and the check passes for the wrong reason.
+    """
     text = source.read_text()
+    # label -> (needle, exact number of sites it must match; None = at least one)
     required = {
-        "explicit faithful mode": "KISS_FAITHFUL",
-        "exact 35,000-step guard": "requires exactly 35000 search steps",
-        "raw Adam forced in faithful mode": "int adam_raw=faithful_mode ||",
-        "uniform-random hypercube extra": "exact seed core + uniform-random hypercube extra",
-        "no faithful penalty fallback": "if(!faithful_mode &&",
-        "authors polish learning-rate factor": "if(faithful_mode) stage_lr/=10.0",
-        "raw Adam nonfinite guard": 'faithful_guard("raw step update"',
-        "polish nonfinite guard": 'faithful_guard("polish step update"',
-        "no nonfinite serialization": "no candidate was serialized",
+        "explicit faithful mode": ("KISS_FAITHFUL", None),
+        "exact 35,000-step guard": ("requires exactly 35000 search steps", 1),
+        "raw Adam forced in faithful mode": ("int adam_raw=faithful_mode ||", 1),
+        "hypercube extra for the 841st point": (
+            "faithful init: exact seed core + %s hypercube extra", 1),
+        "no faithful penalty fallback": (
+            'fprintf(stderr,"penalty polish from max=', 1),
+        # three sites each: the guard covers X, M1 and M2 after every update
+        "raw Adam nonfinite guard": ('faithful_guard("raw step update"', 3),
+        "polish nonfinite guard": ('faithful_guard("polish step update"', 3),
+        # two abort sites: the initial state and the final state
+        "no nonfinite serialization": ("no candidate was serialized", 2),
     }
-    for label, needle in required.items():
-        if needle not in text:
+    for label, (needle, expected) in required.items():
+        count = text.count(needle)
+        if count == 0:
             raise AssertionError(f"missing source contract: {label}")
-    print("source contract: faithful guards and /10 polish factor present")
+        if expected is not None and count != expected:
+            raise AssertionError(
+                f"source contract needle for {label!r} matches {count} sites, "
+                f"expected {expected}; it no longer identifies what it stands for"
+            )
+
+    # The polish table must hold the authors' *effective* rates, and must not be
+    # divided by ten a second time on the faithful path.
+    match = re.search(r"polish_lr\[\]\s*=\s*\{([^}]*)\}", text)
+    if not match:
+        raise AssertionError("could not find polish_lr[] in the optimizer source")
+    table = tuple(float(v) for v in match.group(1).split(","))
+    if table != AUTHORS_EFFECTIVE_POLISH_LR:
+        raise AssertionError(
+            f"polish_lr[] is {table}, expected the authors' effective rates "
+            f"{AUTHORS_EFFECTIVE_POLISH_LR}"
+        )
+    if "stage_lr/=10.0" in text or "stage_lr /= 10.0" in text:
+        raise AssertionError(
+            "polish_lr[] already includes polish_841.py's lr/10; dividing again "
+            "makes the faithful polish ten times too small"
+        )
+    print("source contract: guards unique, polish_lr[] holds the effective rates")
 
 
 def check_bounded_polish(binary: Path, fixture: Path, directory: Path) -> None:
@@ -197,6 +237,82 @@ def check_bounded_polish(binary: Path, fixture: Path, directory: Path) -> None:
     ):
         raise AssertionError("faithful later-stage start was not rejected cleanly")
     print("later-stage fresh-moment start: rejected as non-faithful")
+
+
+def _polish_once(binary: Path, seed_file: Path, directory: Path,
+                 lr_scale: float, tag: str) -> float:
+    """One faithful polish update; returns max |dX| over all coordinates."""
+    work = directory / f"lrprobe_{tag}.txt"
+    work.write_text(seed_file.read_text())
+    env = os.environ.copy()
+    env.update(
+        {
+            "KISS_FAITHFUL": "1",
+            "KISS_ADAM_POLISH": "1",
+            "KISS_ADAM_POLISH_ONLY": "1",
+            "KISS_ADAM_POLISH_STEPS": "1",
+            "KISS_ADAM_POLISH_STAGES": "1",
+            "KISS_ADAM_POLISH_LR_SCALE": repr(lr_scale),
+            "KISS_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "KISS_POLISH": "1",
+        }
+    )
+    proc = subprocess.run(
+        [str(binary), "12", "841", "35000", "993", str(work)],
+        text=True, capture_output=True, env=env, check=False,
+    )
+    if proc.returncode != 0:
+        raise AssertionError(f"polish probe failed ({proc.returncode}):\n{proc.stderr}")
+    out = Path(f"{work}.riesz.s993.out")
+    if not out.exists():
+        raise AssertionError(f"polish probe wrote no candidate: {out}")
+    return float(np.abs(np.loadtxt(out) - np.loadtxt(work)).max())
+
+
+def check_polish_step_scale(binary: Path, prepared: Path, directory: Path) -> None:
+    """Behavioural check on the faithful polish learning rate.
+
+    A single Adam update from fresh moments moves each coordinate by about the
+    stage learning rate (m_hat/sqrt(v_hat) ~ sign(g)), so the displacement after
+    one step is a direct probe of the rate actually used.  This catches two
+    failures a two-step smoke test on an already-feasible witness cannot:
+
+      * applying polish_841.py's lr/10 twice, making the rate 10x too small;
+      * discarding the polished state entirely, which is what happened when the
+        candidate buffer was only written on an improvement in max-IP.
+    """
+    first_stage_lr = AUTHORS_EFFECTIVE_POLISH_LR[0]
+    moved = _polish_once(binary, prepared, directory, 1.0, "unit")
+
+    if moved == 0.0:
+        raise AssertionError(
+            "faithful polish serialized its input unchanged: the polished state "
+            "never reached the candidate buffer"
+        )
+    ratio = moved / first_stage_lr
+    if not 1.0 <= ratio <= 4.0:
+        raise AssertionError(
+            f"one faithful polish step moved max |dX|={moved:.4g}, i.e. "
+            f"{ratio:.3g}x the expected stage rate {first_stage_lr:.1e}. "
+            "A ratio near 0.19 means polish_841.py's lr/10 is applied twice; "
+            "near 19 means it is not applied at all."
+        )
+
+    # Displacement must track the rate linearly, which pins the scale rather
+    # than just its order of magnitude.
+    scaled = _polish_once(binary, prepared, directory, 10.0, "x10")
+    linearity = scaled / moved
+    if not 9.0 <= linearity <= 11.0:
+        raise AssertionError(
+            f"10x the polish rate moved {linearity:.4g}x as far; the reported "
+            "learning rate is not the one being applied"
+        )
+    print(
+        f"faithful polish rate: one step moved {moved:.4g} "
+        f"({ratio:.3g}x stage lr {first_stage_lr:.1e}); 10x rate scaled {linearity:.4g}x"
+    )
 
 
 def check_nonfinite_abort(binary: Path, fixture: Path, directory: Path) -> None:
@@ -313,6 +429,9 @@ def main() -> None:
             print(f"binary smoke: skipped; build {args.binary} first")
         else:
             check_bounded_polish(args.binary, args.coordinates, directory)
+            check_polish_step_scale(
+                args.binary, directory / "authors_prepared_coords.txt", directory
+            )
             check_nonfinite_abort(args.binary, args.coordinates, directory)
     print("PASS: faithful 841 regression checks")
 

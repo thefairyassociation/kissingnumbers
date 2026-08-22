@@ -5,6 +5,9 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
 
+# NOTE: mis8 rewrites kissing/logs/mis8_n14_s1.txt as a side effect, so this
+# self-check leaves that tracked file modified.  Restore it with
+# `git checkout -- kissing/logs/mis8_n14_s1.txt` before committing.
 echo "== mis8: load Ganzhinov 1568 with zero violations =="
 python3 - <<'PY'
 import numpy as np, sys
@@ -109,6 +112,16 @@ echo "$c13" | grep -q 'max_clique_found=21'
 echo "clique OK"
 
 echo "== riesz selftest (BLAS engrad vs reference loops) =="
+# riesz/riesz2 are build products, not committed binaries, so build them here.
+# The BLAS-free checks above have already run by this point, so a machine
+# without OpenBLAS still gets everything it can.
+if [ ! -x kissing/lib/riesz2 ]; then
+  if ! make -C kissing/lib riesz2; then
+    echo "SKIP riesz selftest: could not build riesz2 (see message above)" >&2
+    echo "all BLAS-free self-checks passed"
+    exit 0
+  fi
+fi
 KISS_SELFTEST=1 ./kissing/lib/riesz2
 
 echo "all self-checks passed"

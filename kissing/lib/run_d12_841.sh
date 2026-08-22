@@ -1,6 +1,6 @@
 #!/bin/bash
 # Dim-12 calibration: classical 840 + 1, BLAS Riesz continuation with Adam.
-# Run from the repo root.
+# Run from the repo root.  Needs OpenBLAS: see `make -C kissing/lib blas-check`.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
@@ -13,9 +13,11 @@ SEED=${SEED:-kissing/logs/cl840_841.txt}
 MODE=${MODE:-hypercube}
 S=${S:-51}
 
-# Keep the historical CPU calibration defaults unless the source-fidelity
-# mode is explicitly requested.  Faithful mode requires the authors' exact
-# 35,000-step budget; KISS_JIT is intentionally ignored by riesz.c there.
+# This driver is the Adam calibration path, not the legacy homotopy: it sets
+# KISS_SOLVER=adam below on purpose (riesz.c's unmarked default is GD, which is
+# what rieszloop.sh and the other legacy scripts want).  Faithful mode requires
+# the authors' exact 35,000-step budget; KISS_JIT is intentionally ignored by
+# riesz.c there.
 if [ "${KISS_FAITHFUL:-0}" = "1" ]; then
   STEPS=${STEPS:-35000}
 else

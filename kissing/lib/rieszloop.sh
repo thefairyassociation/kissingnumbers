@@ -2,6 +2,10 @@
 # Riesz-energy continuation from shaken copies of a known configuration.
 # usage: rieszloop.sh <dim> <base floats> <N> <tag> <seed0>
 cd /home/user/unsolved
+# Pin the solver explicitly: riesz.c also implements L-BFGS and the
+# published Adam schedule, and this script's numbers come from the
+# geometric-homotopy GD that the old committed riesz2 binary ran.
+export KISS_SOLVER=gd
 d=$1; base=$2; N=$3; tag=$4; s0=$5
 SP=/tmp/claude-0/-home-user-unsolved/153d4bbc-6a4f-55aa-a990-7da3460d88ca/scratchpad
 for i in $(seq 0 20000); do

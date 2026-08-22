@@ -4,6 +4,10 @@
 #   1 core   dim-13 Riesz shake-and-relax for 1155 points
 #   1 core   dim-14 Fano-design code enumeration (left alone if already up)
 cd /home/user/unsolved
+# Pin the solver explicitly: riesz.c also implements L-BFGS and the
+# published Adam schedule, and this script's numbers come from the
+# geometric-homotopy GD that the old committed riesz2 binary ran.
+export KISS_SOLVER=gd
 SP=/tmp/claude-0/-home-user-unsolved/153d4bbc-6a4f-55aa-a990-7da3460d88ca/scratchpad
 pkill -x opt2; pkill -x riesz2; pkill -f shakeloop.sh; pkill -f rieszloop.sh
 sleep 2

@@ -6,10 +6,12 @@
  * increasing sequence of exponents s.  As s -> infinity the minimisers approach
  * best-packing configurations.
  *
- * Inner solve at each s: limited-memory BFGS (L-BFGS) with a strong-Wolfe line
- * search on the sphere (retraction = row-normalise).  Set KISS_SOLVER=gd for the
- * old backtracking gradient descent, or KISS_SOLVER=adam for the published
- * Takhanov-Assylbekov-Yun exponent schedule with manifold Adam updates.
+ * Inner solve at each s: backtracking gradient descent on the sphere
+ * (retraction = row-normalise) by default -- this is what the committed riesz2
+ * binary did, and what every legacy script in kissing/lib expects.  Set
+ * KISS_SOLVER=lbfgs for limited-memory BFGS with a strong-Wolfe line search, or
+ * KISS_SOLVER=adam for the published Takhanov-Assylbekov-Yun exponent schedule
+ * with manifold Adam updates.
  *
  * Energy/gradient: one BLAS dgemm for the Gram matrix per evaluation (the old
  * code formed every inner product twice with O(N^2 n) loops), then an OpenMP
@@ -22,7 +24,11 @@
  * Env: KISS_JIT, KISS_S0, KISS_SMUL, KISS_SMAX, KISS_THREADS, KISS_SOLVER,
  *      KISS_M (L-BFGS memory), KISS_POLISH, KISS_ADAM_POLISH,
  *      KISS_ADAM_EPS, KISS_PENALTY_TARGET,
- *      KISS_SELFTEST, KISS_PROFILE, KISS_FAITHFUL.
+ *      KISS_SELFTEST, KISS_PROFILE, KISS_FAITHFUL, KISS_FAITHFUL_EXTRA.
+ *
+ * Boolean flags (KISS_FAITHFUL, KISS_POLISH, KISS_ADAM_POLISH,
+ * KISS_ADAM_POLISH_ONLY, KISS_ADAM_RAW, KISS_PENALTY_ONLY, KISS_PROFILE,
+ * KISS_SELFTEST) are all "present and non-zero": FLAG=0 disables.
  *
  * KISS_FAITHFUL=1 is an explicit source-fidelity mode for the published
  * 841-point search.  It is intentionally opt-in: legacy seeded runs retain
@@ -31,8 +37,14 @@
  * core, the final row is replaced by one uniform random hypercube extra, raw
  * Adam is forced, and the 35,000-step published schedule is used verbatim.
  * Set KISS_ADAM_POLISH=1 (or KISS_ADAM_POLISH_ONLY=1) to request the separate
- * authors' polish schedule; its learning rates include the authors' /10
- * factor.  Faithful mode never falls through to penalty polishing.
+ * authors' polish schedule; polish_lr[] already stores their *effective* rates,
+ * i.e. their schedule after polish_841.py's own group["lr"]=lr/10, so no
+ * further division is applied.  Faithful mode never falls through to penalty
+ * polishing.
+ *
+ * The authors' %.10f Gram -> rank-12 eigendecomposition handoff is *not*
+ * performed in C; run prepare_841_polish.py between the search and the polish.
+ * Candidates written here always record gram_handoff=0.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,6 +68,13 @@ static double adam_eps=1e-8;
 static int faithful_mode;
 static double pair_r2_floor=1e-12;
 static int faithful_failure;
+
+/* Boolean environment flags: present *and* non-zero.  Using getenv()!=NULL
+ * alone made KISS_ADAM_POLISH=0 (and KISS_SELFTEST=0) enable the feature. */
+static int env_flag(const char *name){
+    const char *e=getenv(name);
+    return e!=NULL && atoi(e)!=0;
+}
 
 static int finite_block(const double *x, size_t count){
     for(size_t i=0;i<count;i++) if(!isfinite(x[i])) return 0;
@@ -614,9 +633,9 @@ static int adam_stage(double *X, double *G, double *B, double *M1, double *M2,
         double mx,f=engrad(X,G,s,&mx);
         if(f<0 || !isfinite(f) || !isfinite(mx)) return faithful_breakdown("polish loss");
         if(!faithful_guard("polish gradient","G",G,Nn)) return -2;
-        if(mx<*best-1e-13){
+        if(!faithful_mode && mx<*best-1e-13){
             *best=mx; memcpy(B,X,sizeof(double)*Nn);
-            if(!faithful_mode && *best<=0.5+1e-13) return 1;
+            if(*best<=0.5+1e-13) return 1;
         }
         project_tangent(X,G);
         if(!faithful_guard("polish tangent gradient","G",G,Nn)) return -2;
@@ -643,11 +662,22 @@ static int adam_stage(double *X, double *G, double *B, double *M1, double *M2,
     if(f<0 || !isfinite(f) || !isfinite(mx)) return faithful_breakdown("polish stage final loss");
     if(!faithful_guard("polish stage final","X",X,Nn) ||
        !faithful_rows_guard("polish stage final","X",X)) return -2;
+    if(faithful_mode){
+        /* Same rule as adam_raw_stage: the authors' polish returns the final
+         * state of the stage, not the best transient.  Without this the
+         * candidate buffer B kept whatever came in whenever the polish did not
+         * improve max-IP, so a faithful polish serialized its own *input* and
+         * silently discarded every update it had just computed. */
+        *best=mx; memcpy(B,X,sizeof(double)*Nn);
+        if(!faithful_guard("polish stage result","B",B,Nn) ||
+           !faithful_rows_guard("polish stage result","B",B)) return -2;
+        return 0;
+    }
     if(mx<*best-1e-13){
         *best=mx; memcpy(B,X,sizeof(double)*Nn);
         if(!faithful_guard("polish stage result","B",B,Nn) ||
            !faithful_rows_guard("polish stage result","B",B)) return -2;
-        if(!faithful_mode && *best<=0.5+1e-13) return 1;
+        if(*best<=0.5+1e-13) return 1;
     }
     return 0;
 }
@@ -790,7 +820,7 @@ static int lbfgs_pen_stage(double *X, double *G, double *B, double *Y, double *G
 }
 
 int main(int argc,char**argv){
-    if(getenv("KISS_SELFTEST")) return selftest();
+    if(env_flag("KISS_SELFTEST")) return selftest();
     if(argc<5){ fprintf(stderr,"usage: riesz n N steps seed [seedfile]\n"); return 1; }
     n=atoi(argv[1]); N=atoi(argv[2]); long steps=atol(argv[3]);
     rs=strtoull(argv[4],0,10)*2862933555777941757ULL+3037000493ULL;
@@ -807,13 +837,24 @@ int main(int argc,char**argv){
 #endif
     openblas_set_num_threads(1);
 
-    enum { SOLVER_LBFGS, SOLVER_GD, SOLVER_ADAM } solver=SOLVER_ADAM;
+    /* Default is the geometric-homotopy GD that the committed riesz2 binary
+     * implemented; every legacy script (rieszloop.sh, calib2.sh, calibrate.sh,
+     * relaunch.sh, restart_all.sh) relies on it and none of them set
+     * KISS_SOLVER.  L-BFGS and Adam are opt-in. */
+    enum { SOLVER_LBFGS, SOLVER_GD, SOLVER_ADAM } solver=SOLVER_GD;
     { const char*e=getenv("KISS_SOLVER");
       if(e && !strcmp(e,"gd")) solver=SOLVER_GD;
       else if(e && !strcmp(e,"lbfgs")) solver=SOLVER_LBFGS;
-      else if(e && !strcmp(e,"adam")) solver=SOLVER_ADAM; }
-    faithful_mode = getenv("KISS_FAITHFUL") != NULL && atoi(getenv("KISS_FAITHFUL")) != 0;
-    int adam_polish_only=getenv("KISS_ADAM_POLISH_ONLY")!=NULL;
+      else if(e && !strcmp(e,"adam")) solver=SOLVER_ADAM;
+      else if(e && *e){
+          fprintf(stderr,"unknown KISS_SOLVER=%s (want gd, lbfgs or adam)\n",e);
+          return 1;
+      } }
+    faithful_mode = env_flag("KISS_FAITHFUL");
+    /* Faithful mode is an Adam protocol; it may still be requested without an
+     * explicit KISS_SOLVER now that the unmarked default is GD. */
+    if(faithful_mode && getenv("KISS_SOLVER")==NULL) solver=SOLVER_ADAM;
+    int adam_polish_only=env_flag("KISS_ADAM_POLISH_ONLY");
     if(faithful_mode){
         if(n!=12 || N!=841){
             fprintf(stderr,"KISS_FAITHFUL currently requires n=12 and N=841\n");
@@ -823,7 +864,7 @@ int main(int argc,char**argv){
             fprintf(stderr,"KISS_FAITHFUL requires KISS_SOLVER=adam (or no solver override)\n");
             return 1;
         }
-        if(getenv("KISS_PENALTY_ONLY")){
+        if(env_flag("KISS_PENALTY_ONLY")){
             fprintf(stderr,"KISS_FAITHFUL is incompatible with KISS_PENALTY_ONLY\n");
             return 1;
         }
@@ -849,7 +890,7 @@ int main(int argc,char**argv){
     { const char*e=getenv("KISS_ADAM_EPS"); if(e && atof(e)>0) adam_eps=atof(e); }
     double penalty_target=-1.0;
     { const char*e=getenv("KISS_PENALTY_TARGET"); if(e && atof(e)>=0.5) penalty_target=atof(e); }
-    do_profile = getenv("KISS_PROFILE")!=NULL;
+    do_profile = env_flag("KISS_PROFILE");
 
     size_t Nn=(size_t)N*n, NN=(size_t)N*N;
     Gram=malloc(sizeof(double)*NN);
@@ -866,7 +907,8 @@ int main(int argc,char**argv){
     double *AdamM=solver==SOLVER_ADAM ? calloc(Nn,sizeof(double)) : NULL;
     double *AdamV=solver==SOLVER_ADAM ? calloc(Nn,sizeof(double)) : NULL;
     double *AdamNorm=solver==SOLVER_ADAM ? malloc(sizeof(double)*(size_t)N) : NULL;
-    if(!Gram||!Cmat||!X||!Smem||!P){ fprintf(stderr,"oom\n"); return 1; }
+    if(!Gram||!Cmat||!GX||!rowsum||!Smem||!Ymem||
+       !X||!G||!B||!Y||!GY||!P){ fprintf(stderr,"oom\n"); return 1; }
     if(solver==SOLVER_ADAM && (!AdamM||!AdamV||!AdamNorm)){ fprintf(stderr,"oom\n"); return 1; }
 
     for(size_t i=0;i<Nn;i++) X[i]=nrand();
@@ -887,14 +929,31 @@ int main(int argc,char**argv){
             /* The authors copy C840 exactly and randomise only the 841st
              * point.  The input's final row is deliberately ignored. */
             const double scale=1.0/sqrt((double)n);
+            /* KISS_FAITHFUL_EXTRA pins the 841st hypercube vertex so a run can
+             * be replayed exactly, or a specific extra reproduced from a
+             * sidecar written by o4_breadth.make_seed.  Without it the index is
+             * drawn from the C RNG as the authors do. */
+            const char *pin=getenv("KISS_FAITHFUL_EXTRA");
+            int pinned=0;
+            if(pin && *pin){
+                char *end; unsigned long v=strtoul(pin,&end,0);
+                if(*end || v>=(1UL<<n)){
+                    fprintf(stderr,"KISS_FAITHFUL_EXTRA=%s is not an index in [0,%lu)\n",
+                            pin,(unsigned long)1UL<<n);
+                    return 1;
+                }
+                faithful_extra_index=(unsigned)v; pinned=1;
+            }
             for(int k=0;k<n;k++){
-                unsigned bit=(unsigned)(uraw()&1ULL);
-                if(bit) faithful_extra_index|=1u<<k;
+                unsigned bit = pinned ? ((faithful_extra_index>>k)&1u)
+                                      : (unsigned)(uraw()&1ULL);
+                if(bit && !pinned) faithful_extra_index|=1u<<k;
                 X[(size_t)(N-1)*n+k]=(bit?1.0:-1.0)*scale;
             }
             faithful_extra_randomized=1;
-            fprintf(stderr,"faithful init: exact seed core + uniform-random hypercube extra "
-                           "index=%u; no jitter\n", faithful_extra_index);
+            fprintf(stderr,"faithful init: exact seed core + %s hypercube extra "
+                           "index=%u; no jitter\n",
+                           pinned?"pinned":"uniform-random", faithful_extra_index);
         }else if(!faithful_mode){
             double jit=0.03; { const char*e=getenv("KISS_JIT"); if(e) jit=atof(e); }
             if(jit>0) for(size_t t=0;t<Nn;t++) X[t]+=jit*nrand();
@@ -931,11 +990,22 @@ int main(int argc,char**argv){
     double t_run=wall();
     int feasible=0;
 
-    int adam_polish=getenv("KISS_ADAM_POLISH")!=NULL || adam_polish_only;
-    int penalty_only=getenv("KISS_PENALTY_ONLY")!=NULL;
+    int adam_polish=env_flag("KISS_ADAM_POLISH") || adam_polish_only;
+    int penalty_only=env_flag("KISS_PENALTY_ONLY");
     if(faithful_mode) fprintf(stderr,"faithful plan: polish=%d polish_only=%d penalty_only=%d do_polish=%d\n",
                              adam_polish,adam_polish_only,penalty_only,do_polish);
-    int adam_raw=faithful_mode || getenv("KISS_ADAM_RAW")!=NULL;
+    int adam_raw=faithful_mode || env_flag("KISS_ADAM_RAW");
+    /* The Adam polish block below requires solver==SOLVER_ADAM.  Without this
+     * check, KISS_ADAM_POLISH_ONLY=1 KISS_SOLVER=gd silently ran a full GD
+     * search and no polish at all. */
+    if(adam_polish_only && solver!=SOLVER_ADAM){
+        fprintf(stderr,"KISS_ADAM_POLISH_ONLY requires KISS_SOLVER=adam\n");
+        return 1;
+    }
+    if(adam_polish && solver!=SOLVER_ADAM){
+        fprintf(stderr,"KISS_ADAM_POLISH requires KISS_SOLVER=adam\n");
+        return 1;
+    }
     int adam_base_start=0;
     int adam_base_end=13;
     { const char*e=getenv("KISS_ADAM_BASE_START"); if(e && atoi(e)>=0 && atoi(e)<13) adam_base_start=atoi(e); }
@@ -974,7 +1044,7 @@ int main(int argc,char**argv){
                 feasible=1; break;
             }
         }
-    }else if(solver!=SOLVER_ADAM){
+    }else if(solver!=SOLVER_ADAM && !penalty_only){
         for(double s=s0; s<smax; s*=smul){
             long inner = solver==SOLVER_LBFGS && per>inner_cap ? inner_cap : per;
             int rc;
@@ -990,6 +1060,8 @@ int main(int argc,char**argv){
         }
     }
 
+    long polish_updates=0;
+    int polish_ran=0;
     if(solver==SOLVER_ADAM && adam_polish && !penalty_only &&
        !feasible && do_polish && (faithful_mode || best>0.5)){
         /* Ultra-high-exponent polishing schedule from the authors' published
@@ -1009,11 +1081,15 @@ int main(int argc,char**argv){
         memcpy(X,B,sizeof(double)*Nn);
         memset(AdamM,0,sizeof(double)*Nn); memset(AdamV,0,sizeof(double)*Nn);
         long ait=0; double b1pow=1.0,b2pow=1.0;
+        polish_ran=1;
         double saved_pair_r2_floor=pair_r2_floor;
         if(faithful_mode) pair_r2_floor=1e-14; /* polish_841.py clamp */
         for(int stage=0;stage<polish_stages;stage++){
+            /* polish_lr[] already holds the authors' *effective* rates, i.e.
+             * their schedule {5e-9 .. 2e-10} after polish_841.py's own
+             * group["lr"]=lr/10.  Dividing again here made the advertised
+             * faithful polish ten times smaller than the source. */
             double stage_lr=polish_lr[stage]*polish_lr_scale;
-            if(faithful_mode) stage_lr/=10.0; /* authors' polish_841.py */
             int rc=adam_stage(X,G,B,AdamM,AdamV,polish_s[stage],polish_steps,
                               stage_lr,
                               &ait,&b1pow,&b2pow,&best);
@@ -1026,6 +1102,7 @@ int main(int argc,char**argv){
             }
         }
         pair_r2_floor=saved_pair_r2_floor;
+        polish_updates=ait;
     }
 
     if(!faithful_mode &&
@@ -1071,23 +1148,45 @@ int main(int argc,char**argv){
         fprintf(stderr,"profile nfev=%ld  gemm=%.3fs  pairs=%.3fs  CX=%.3fs\n",
                 n_engrad, t_gemm, t_pairs, t_cx);
     }
-    printf("n=%d N=%d best_max_inner=%.17g feasible=%d\n",n,N,best,best<=0.5+1e-12);
+    /* In faithful mode `best` is deliberately the final state of the last
+     * macro, not the best transient; label it accordingly. */
+    printf("n=%d N=%d %s=%.17g feasible=%d\n",n,N,
+           faithful_mode ? "final_max_inner" : "best_max_inner",
+           best,best<=0.5+1e-12);
     char fn[512];
     if(argc>5) snprintf(fn,sizeof fn,"%s.riesz.s%s.out",argv[5],argv[4]);
     else snprintf(fn,sizeof fn,"riesz_%s.out",argv[4]);
     FILE*f=fopen(fn,"w");
+    if(!f){ perror(fn); return 1; }
     fprintf(f,"# n=%d N=%d max_inner=%.17g\n",n,N,best);
-    if(faithful_mode && faithful_extra_randomized)
-        fprintf(f,"# faithful=1 raw_adam=1 jitter=0 search_stage_start=%d "
-                  "search_stage_end=%d search_updates=%ld full_schedule=%d "
-                  "extra_mode=uniform-random extra_index=%u\n",
-                  adam_base_start,adam_base_end,adam_search_updates,
-                  adam_base_start==0 && adam_base_end==13 && adam_search_updates==35000,
-                  faithful_extra_index);
-    else if(faithful_mode)
-        fprintf(f,"# faithful=1 raw_adam=1 jitter=0 search_stage_start=none "
-                  "search_stage_end=none search_updates=0 full_schedule=0 "
-                  "extra_mode=preserved-input extra_index=none\n");
+    /* Provenance for every run, not just faithful ones: candidate files from
+     * different solvers were otherwise byte-format identical. */
+    fprintf(f,"# solver=%s loss=%s steps=%ld seed=%s polish=%d\n",
+            solver_name, loss_ip?"ip":"riesz", steps, argv[4], do_polish);
+    if(faithful_mode){
+        /* raw_adam describes the *search*: the polish stages use adam_stage
+         * (retract every step), matching the authors' polish_841.py, so a
+         * polish-only run has no raw-Adam phase at all.
+         * gram_handoff=0 always: the authors' %.10f Gram -> rank-12
+         * eigendecomposition step is external (prepare_841_polish.py), so a
+         * candidate produced here has never been through it. */
+        int search_ran = faithful_extra_randomized;
+        if(search_ran)
+            fprintf(f,"# faithful=1 raw_adam=1 jitter=0 search_stage_start=%d "
+                      "search_stage_end=%d search_updates=%ld full_schedule=%d "
+                      "extra_mode=%s extra_index=%u",
+                      adam_base_start,adam_base_end,adam_search_updates,
+                      adam_base_start==0 && adam_base_end==13 && adam_search_updates==35000,
+                      getenv("KISS_FAITHFUL_EXTRA") && *getenv("KISS_FAITHFUL_EXTRA")
+                          ? "pinned" : "uniform-random",
+                      faithful_extra_index);
+        else
+            fprintf(f,"# faithful=1 raw_adam=0 jitter=0 search_stage_start=none "
+                      "search_stage_end=none search_updates=0 full_schedule=0 "
+                      "extra_mode=preserved-input extra_index=none");
+        fprintf(f," polish=%d polish_updates=%ld gram_handoff=0\n",
+                polish_ran, polish_updates);
+    }
     for(int i=0;i<N;i++){ for(int k=0;k<n;k++) fprintf(f,"%.17g ",B[(size_t)i*n+k]); fputc('\n',f); }
     fclose(f); return 0;
 }
