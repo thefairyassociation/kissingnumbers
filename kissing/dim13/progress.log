@@ -1,3 +1,5 @@
 2026-08-21T03:02:26Z  method=ze99-reproduction  dim=13  count=1154  pass  baseline 1154 exact; not a record improvement
 2026-08-23T04:45:46.864344+00:00 method='PackingStar rational Gram exact reconstruction' dimension=13 count=1146 result=pass source=13D-1146-cosmatrix.npy
 2026-08-23T04:45:46.864344+00:00 method='PackingStar rational Gram exact reconstruction' dimension=13 count=1146 result=pass source=13D-1146-cosmatrix_variant_1.npy
+2026-08-23T04:53:07.451348+00:00 method='PackingStar rational Gram exact reconstruction' dimension=13 count=1146 result=pass source=13D-1146-cosmatrix.npy
+2026-08-23T04:53:07.451348+00:00 method='PackingStar rational Gram exact reconstruction' dimension=13 count=1146 result=pass source=13D-1146-cosmatrix_variant_1.npy
