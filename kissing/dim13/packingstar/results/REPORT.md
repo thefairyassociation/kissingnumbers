@@ -1,6 +1,6 @@
 # PackingStar dimension-13 exact reconstruction
 
-Generated 2026-08-23T05:00:17.973079+00:00 from `/tmp/packingstar`.
+Generated 2026-08-23T05:01:05.815113+00:00 from `/tmp/packingstar`.
 
 This independently reconstructs exact rational Gram matrices from the public
 PackingStar `.npy` files. A successful row proves symmetry, unit diagonal,
@@ -55,7 +55,7 @@ Single-point hole diagnostic (numerical only):
   "success": true,
   "starts": 90,
   "successful_lp_solves": 331,
-  "best_polytope_norm": 0.9354143466934856,
+  "best_polytope_norm": 0.9354143466934854,
   "best_iterations": 2,
   "single_point_addition_numerically_possible": false,
   "normalized_candidate_max_inner": 0.5345224838248491,
