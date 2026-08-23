@@ -42,3 +42,5 @@
 2026-08-23T06:57:37.829513+00:00 method='ZE99 ternary auxiliary exact search' dimension=13 count=1154 result=fail family_optimal=True
 2026-08-23T07:02:48.075101+00:00 method='ZE99 ternary auxiliary exact search' dimension=13 count=? result=started
 2026-08-23T07:02:54.449403+00:00 method='ZE99 ternary auxiliary exact search' dimension=13 count=1154 result=fail family_optimal=True
+2026-08-23T07:03:58.672998+00:00 method='ZE99 ternary auxiliary exact search' dimension=13 count=? result=started
+2026-08-23T07:04:04.907877+00:00 method='ZE99 ternary auxiliary exact search' dimension=13 count=1154 result=fail family_optimal=True
