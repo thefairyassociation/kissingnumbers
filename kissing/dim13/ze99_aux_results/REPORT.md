@@ -73,7 +73,7 @@ with both last-coordinate signs, so auxiliary size 25 would yield 1,156.
     "norm2": 16,
     "ok": true
   },
-  "generated_at": "2026-08-23T06:04:37.612884+00:00",
+  "generated_at": "2026-08-23T06:05:39.287797+00:00",
   "method": "exhaustive q/sqrt(|supp q|), q in {0,+/-1}^12, exact clique search",
   "record": 1154,
   "search": {
