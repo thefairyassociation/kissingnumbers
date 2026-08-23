@@ -1,0 +1,230 @@
+name: Exact one-tetrad-deletion 177-layer search
+
+on:
+  push:
+    branches:
+      - codex/d13-drop-tetrad-177
+    paths:
+      - .github/workflows/ze99-drop-tetrad-177.yml
+      - kissing/dim13/search_ze99_drop_tetrad_layer.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
+  pull_request:
+    branches:
+      - codex/d13-drop-tetrad-177
+    paths:
+      - .github/workflows/ze99-drop-tetrad-177.yml
+      - kissing/dim13/search_ze99_drop_tetrad_layer.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
+      - kissing/dim13/DROP_TETRAD_TRIGGER.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ze99-drop-tetrad-177-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    if: github.actor != 'github-actions[bot]'
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        drop: [0, 1, 4, 5, 8, 19]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out search ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || 'codex/d13-drop-tetrad-177' }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact finite-search dependencies
+        run: python -m pip install --disable-pip-version-check numpy ortools sympy
+
+      - name: Search deletion type ${{ matrix.drop }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="kissing/dim13/ze99_drop_tetrad_results/drop_${{ matrix.drop }}"
+          rm -rf "$out"
+          mkdir -p "$out"
+          python kissing/dim13/search_ze99_drop_tetrad_layer.py \
+            --drop-index ${{ matrix.drop }} \
+            --output-dir "$out" \
+            --progress-log "$out/progress.log" \
+            --time-limit 1320 \
+            --signless-seconds 120 \
+            --workers 4 \
+            --seed $((5100 + ${{ matrix.drop }})) \
+            | tee "$out/raw_run.log"
+
+      - name: Validate generated result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          drop = ${{ matrix.drop }}
+          root = Path(f'kissing/dim13/ze99_drop_tetrad_results/drop_{drop}')
+          analysis = json.loads((root / 'analysis.json').read_text())
+          assert analysis['status'] == 'completed'
+          assert analysis['drop_index'] == drop
+          assert analysis['enumeration']['binary_sign_directions'] == 4096
+          assert analysis['binary_distance_model']['missing_forbidden_pairs'] == 0
+          assert analysis['binary_distance_model']['extraneous_compatible_pairs'] == 0
+          assert analysis['solver_cases'][0]['status'] in {
+              'INFEASIBLE', 'FEASIBLE', 'OPTIMAL', 'UNKNOWN'
+          }
+          if analysis['beats_record']:
+              assert analysis['candidate_count'] >= 1156
+              assert analysis['exact_verification']['ok'] is True
+              assert (root / analysis['configuration']).is_file()
+              assert (root / 'best.json').is_file()
+          else:
+              assert analysis['candidate_count'] == 1154
+          print({
+              'drop': drop,
+              'status': analysis['solver_cases'][0]['status'],
+              'beats_record': analysis['beats_record'],
+              'candidate_count': analysis['candidate_count'],
+          })
+          PY
+
+      - name: Upload deletion result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-drop-tetrad-${{ matrix.drop }}
+          if-no-files-found: warn
+          path: kissing/dim13/ze99_drop_tetrad_results
+
+  aggregate:
+    if: always() && github.actor != 'github-actions[bot]'
+    needs: search
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out search ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || 'codex/d13-drop-tetrad-177' }}
+          fetch-depth: 0
+
+      - name: Download all deletion results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ze99-drop-tetrad-*
+          path: downloaded
+          merge-multiple: true
+
+      - name: Aggregate and promote any exact witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf kissing/dim13/ze99_drop_tetrad_results
+          mkdir -p kissing/dim13/ze99_drop_tetrad_results
+          cp -R downloaded/drop_* kissing/dim13/ze99_drop_tetrad_results/
+          python - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          root = Path('kissing/dim13/ze99_drop_tetrad_results')
+          analyses = []
+          for path in sorted(root.glob('drop_*/analysis.json')):
+              data = json.loads(path.read_text())
+              analyses.append({
+                  'drop_index': data['drop_index'],
+                  'dropped_support': data['dropped_support'],
+                  'candidate_directions': data['enumeration']['candidate_count'],
+                  'solver_statuses': [case['status'] for case in data['solver_cases']],
+                  'beats_record': data['beats_record'],
+                  'candidate_count': data['candidate_count'],
+                  'path': str(path.parent),
+              })
+          if not analyses:
+              raise SystemExit('no completed deletion analyses were downloaded')
+          winners = [item for item in analyses if item['beats_record']]
+          summary = {
+              'status': 'completed' if len(analyses) == 6 else 'partial',
+              'expected_deletion_types': [0, 1, 4, 5, 8, 19],
+              'completed_deletion_types': [item['drop_index'] for item in analyses],
+              'beats_record': bool(winners),
+              'best_count': max((item['candidate_count'] for item in analyses), default=1154),
+              'results': analyses,
+          }
+          (root / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+          lines = [
+              '# One-tetrad-deletion exact search summary',
+              '',
+              f"- Completed deletion types: **{len(analyses)}/6**.",
+              f"- Exact record witness found: **{bool(winners)}**.",
+              f"- Best verified count: **{summary['best_count']}**.",
+              '',
+          ]
+          for item in analyses:
+              lines.append(
+                  f"- Drop {item['drop_index']}: statuses {item['solver_statuses']}; "
+                  f"count {item['candidate_count']}; record {item['beats_record']}."
+              )
+          (root / 'REPORT.md').write_text('\n'.join(lines) + '\n')
+          if winners:
+              winner = max(winners, key=lambda item: item['candidate_count'])
+              source = Path(winner['path'])
+              best = json.loads((source / 'best.json').read_text())
+              config = source / best['configuration']
+              shutil.copyfile(config, root / config.name)
+              promoted = dict(best)
+              promoted['configuration'] = f"ze99_drop_tetrad_results/{config.name}"
+              Path('kissing/dim13/best.json').write_text(
+                  json.dumps(promoted, indent=2, sort_keys=True) + '\n'
+              )
+              print('promoted', promoted)
+          else:
+              print('no exact witness to promote')
+          PY
+
+      - name: Upload aggregate result and source snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-drop-tetrad-aggregate
+          if-no-files-found: warn
+          path: |
+            kissing/dim13/ze99_drop_tetrad_results
+            kissing/dim13/search_ze99_drop_tetrad_layer.py
+            kissing/dim13/constructions/ze99.py
+            kissing/dim13/data/ze99_structure.json
+
+      - name: Commit completed outputs
+        if: success()
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || 'codex/d13-drop-tetrad-177' }}
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add kissing/dim13/ze99_drop_tetrad_results
+          if ! git diff --quiet -- kissing/dim13/best.json; then
+            git add kissing/dim13/best.json
+          fi
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Record exact one-tetrad-deletion searches [skip ci]'
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin "HEAD:$TARGET_BRANCH"
