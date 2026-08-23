@@ -1,20 +1,23 @@
 {
   "beats_record": false,
   "best_count": 1154,
-  "completed_deletion_types": [
+  "completed_orbit_representatives": [
     0,
     1,
+    11,
     19,
     4,
     5,
     8
   ],
-  "expected_deletion_types": [
+  "coordinate_automorphism_group_order": 12,
+  "expected_orbit_representatives": [
     0,
     1,
     4,
     5,
     8,
+    11,
     19
   ],
   "results": [
@@ -47,6 +50,23 @@
         5
       ],
       "path": "kissing/dim13/ze99_drop_tetrad_results/drop_1",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4424,
+      "drop_index": 11,
+      "dropped_support": [
+        0,
+        1,
+        7,
+        8
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_11",
       "solver_statuses": [
         "UNKNOWN",
         "INFEASIBLE"
@@ -121,5 +141,14 @@
       ]
     }
   ],
-  "status": "completed"
+  "status": "completed",
+  "tetrad_support_orbit_sizes": [
+    12,
+    6,
+    6,
+    3,
+    12,
+    6,
+    6
+  ]
 }

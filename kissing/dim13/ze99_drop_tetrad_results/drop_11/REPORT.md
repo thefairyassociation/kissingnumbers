@@ -1,0 +1,149 @@
+# Exact one-tetrad-deletion layer search
+
+Generated `2026-08-23T20:58:36.423852+00:00`.
+
+- Dropped support index: **11**.
+- Dropped support: `[0, 1, 7, 8]`.
+- Exact candidate directions: **4424**.
+- Target half-height layer: **177**.
+- Record witness found: **False**.
+- Full dimension-13 count: **1154**.
+
+- `with_sign` CP-SAT status: **UNKNOWN**.
+- `signless` CP-SAT status: **INFEASIBLE**.
+
+No lower-bound improvement is claimed by this run.
+
+```json
+{
+  "baseline_exact_verification": {
+    "all_offdiag_leq_bound": true,
+    "count": 1154,
+    "dim": 13,
+    "distinct": true,
+    "max_offdiag_pair": [
+      0,
+      1
+    ],
+    "max_offdiag_unit": "1/2",
+    "max_offdiag_unnormalized": "8",
+    "method": "Zinoviev-Ericson 1999 reproduction (exact Q(sqrt(3)))",
+    "n_tight_pairs": 59640,
+    "norm2": 16,
+    "ok": true
+  },
+  "beats_record": false,
+  "binary_distance_model": {
+    "anticodes": 24576,
+    "extraneous_compatible_pairs": 0,
+    "forbidden_binary_pairs_covered": 610304,
+    "missing_forbidden_pairs": 0,
+    "vertices_per_anticode": 24
+  },
+  "candidate_count": 1154,
+  "configuration": null,
+  "dimension": 13,
+  "drop_index": 11,
+  "dropped_support": [
+    0,
+    1,
+    7,
+    8
+  ],
+  "dropped_support_mask": 387,
+  "enumeration": {
+    "arithmetic": "integer squared inequalities; no floating point",
+    "binary_sign_directions": 4096,
+    "candidate_count": 4424,
+    "coordinate_bound": 2,
+    "drop_index": 11,
+    "magnitude_norm_squared_distribution": {
+      "1": 12,
+      "3": 20,
+      "4": 1,
+      "7": 4,
+      "12": 1,
+      "13": 4
+    },
+    "magnitude_patterns_after_retained_tetrads": 42,
+    "magnitude_support_distribution": {
+      "1": 12,
+      "3": 20,
+      "4": 9,
+      "12": 1
+    },
+    "nonbinary_directions": 328,
+    "primitive_magnitude_patterns_tested": 527345,
+    "retained_tetrad_supports": 50,
+    "signed_direction_norm_squared_distribution": {
+      "1": 24,
+      "12": 4096,
+      "13": 64,
+      "3": 160,
+      "4": 16,
+      "7": 64
+    }
+  },
+  "exact_verification": null,
+  "generated_at": "2026-08-23T20:58:36.423852+00:00",
+  "method": "delete one 16-vector ZE99 tetrad support and exactly search a mixed primitive bound-2 half-height layer",
+  "record_before": 1154,
+  "selected_layer": null,
+  "solver_cases": [
+    {
+      "case": "with_sign",
+      "model": {
+        "binary_sign_variables": 4096,
+        "conditional_sign_terms": 135168,
+        "edge_anticode_constraints": 24576,
+        "known_binary_bound": "A_2(12,4)=144",
+        "nonbinary_forbidden_sign_size_distribution": {
+          "0": 24,
+          "256": 80,
+          "512": 224
+        },
+        "nonbinary_pair_conflicts": 7008,
+        "nonbinary_variables": 328,
+        "symmetry_break": "all-plus binary sign selected",
+        "target_layer": 177
+      },
+      "num_branches": 8226,
+      "num_conflicts": 0,
+      "response_stats": "CpSolverResponse summary:\nstatus: UNKNOWN\nobjective: 0\nbest_bound: 0\nintegers: 4158\nbooleans: 4077\nconflicts: 0\nbranches: 8226\npropagations: 1300405\ninteger_propagations: 1525537\nrestarts: 0\nlp_iterations: 73090\nwalltime: 1320.01\nusertime: 1320.01\ndeterministic_time: 4553.31\ngap_integral: 0\n",
+      "solution": null,
+      "status": "UNKNOWN",
+      "time_limit_seconds": 1320.0,
+      "user_time_seconds": 1320.007900733,
+      "wall_time_seconds": 1320.007900623
+    },
+    {
+      "case": "signless",
+      "model": {
+        "binary_sign_variables": 4096,
+        "conditional_sign_terms": 135168,
+        "edge_anticode_constraints": 24576,
+        "known_binary_bound": "A_2(12,4)=144",
+        "nonbinary_forbidden_sign_size_distribution": {
+          "0": 24,
+          "256": 80,
+          "512": 224
+        },
+        "nonbinary_pair_conflicts": 7008,
+        "nonbinary_variables": 328,
+        "symmetry_break": "no binary signs",
+        "target_layer": 177
+      },
+      "num_branches": 0,
+      "num_conflicts": 0,
+      "response_stats": "CpSolverResponse summary:\nstatus: INFEASIBLE\nobjective: NA\nbest_bound: NA\nintegers: 0\nbooleans: 0\nconflicts: 0\nbranches: 0\npropagations: 0\ninteger_propagations: 0\nrestarts: 0\nlp_iterations: 0\nwalltime: 0.181304\nusertime: 0.181305\ndeterministic_time: 0.00914565\ngap_integral: 0\n",
+      "solution": null,
+      "status": "INFEASIBLE",
+      "time_limit_seconds": 120.0,
+      "user_time_seconds": 0.181304501,
+      "wall_time_seconds": 0.181304441
+    }
+  ],
+  "status": "completed",
+  "target": 1155
+}
+```
