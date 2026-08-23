@@ -1,0 +1,95 @@
+name: Search ZE99 25-point auxiliary layer matrix
+
+on:
+  push:
+    branches:
+      - codex/d13-steiner-switch-record
+    paths:
+      - .github/workflows/ze99-aux-25-matrix.yml
+      - kissing/dim13/search_ze99_aux_continuous.py
+      - kissing/dim13/ze99_aux_core.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ze99-aux-25-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    if: github.actor != 'github-actions[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [2026082311, 2026082312, 2026082313, 2026082314]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/d13-steiner-switch-record
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numerical dependencies
+        run: python -m pip install --disable-pip-version-check numpy scipy
+
+      - name: Search finite slab vertices and continuous 25-codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="/tmp/ze99-aux-${{ matrix.seed }}"
+          python kissing/dim13/search_ze99_aux_continuous.py \
+            --output-dir "$out" \
+            --progress-log "$out/progress.log" \
+            --seed ${{ matrix.seed }} \
+            --random-directions 2600 \
+            --fixed-point-rounds 4 \
+            --greedy-rounds 4500 \
+            --exact-seconds 240 \
+            --milp-vertices 1400 \
+            --milp-seconds 300 \
+            --restarts 28 \
+            --lbfgs-maxiter 650 \
+            | tee "$out/console.log"
+
+      - name: Summarize result
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('/tmp/ze99-aux-${{ matrix.seed }}')
+          p = root / 'analysis.json'
+          if p.exists():
+              x = json.loads(p.read_text())
+              b = x['continuous_search']['best']
+              print(json.dumps({
+                  'seed': ${{ matrix.seed }},
+                  'finite_best': x['finite_search']['best']['count'],
+                  'max_violation': b['metrics']['max_violation'],
+                  'pair_max': b['metrics']['pair_max'],
+                  'fixed_max': b['metrics']['fixed_max'],
+                  'numerically_feasible': b['numerically_feasible'],
+                  'implied_full_count': b['implied_full_count'],
+              }, indent=2))
+          PY
+
+      - name: Upload complete search output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-aux-25-${{ matrix.seed }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: /tmp/ze99-aux-${{ matrix.seed }}
