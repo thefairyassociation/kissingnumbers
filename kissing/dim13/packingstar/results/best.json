@@ -25,7 +25,7 @@
   "hole_search": {
     "available": true,
     "best_iterations": 2,
-    "best_polytope_norm": 0.9354143466934856,
+    "best_polytope_norm": 0.9354143466934854,
     "coordinate_norm_error": 4.440892098500626e-16,
     "normalized_candidate_conflict_indices": [
       32,
