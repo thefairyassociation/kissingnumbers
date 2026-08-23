@@ -14,6 +14,10 @@ on:
       - kissing/dim13/packingstar/fetch_source.py
       - kissing/dim13/packingstar/source_lock.json
       - kissing/dim13/packingstar/test_support.py
+      - kissing/dim13/packingstar/results/analysis.json
+      - kissing/dim13/packingstar/results/REPORT.md
+      - kissing/dim13/packingstar/results/best.json
+      - kissing/dim13/packingstar/results/archive.sha256
       - kissing/dim13/packingstar/results/configs/**
   workflow_dispatch:
 
