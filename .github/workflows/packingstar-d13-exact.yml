@@ -55,13 +55,21 @@ jobs:
             --output-dir kissing/dim13/packingstar/results \
             --progress-log kissing/dim13/progress.log 2>&1 | tee kissing/dim13/packingstar/results/raw_run.log
 
-      - name: Decode the exact E6/E7 fiber product and search structured cap candidates
+      - name: Decode the exact antipodal E6/E7 fiber product
         run: |
           set -euxo pipefail
           python kissing/dim13/packingstar/analyze_fiber.py \
             --matrix /tmp/packingstar/13D_rational_configurations/13D-1146-cosmatrix.npy \
             --output-dir kissing/dim13/packingstar/results \
             --expensive 2>&1 | tee kissing/dim13/packingstar/results/fiber_raw_run.log
+
+      - name: Decode the exact non-antipodal fiber variant
+        run: |
+          set -euxo pipefail
+          python kissing/dim13/packingstar/analyze_fiber_variant.py \
+            --matrix /tmp/packingstar/13D_rational_configurations/13D-1146-cosmatrix_variant_1.npy \
+            --output-dir kissing/dim13/packingstar/results \
+            --expensive 2>&1 | tee kissing/dim13/packingstar/results/variant_fiber_raw_run.log
 
       - name: Commit reproducible outputs
         run: |
@@ -73,6 +81,6 @@ jobs:
             echo 'No generated changes.'
             exit 0
           fi
-          git commit -m 'Analyze PackingStar dimension-13 fiber construction [skip d13 packingstar]'
+          git commit -m 'Analyze both PackingStar dimension-13 fiber constructions [skip d13 packingstar]'
           git pull --rebase origin codex/d13-packingstar-exact
           git push origin HEAD:codex/d13-packingstar-exact
