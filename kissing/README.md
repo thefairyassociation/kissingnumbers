@@ -283,6 +283,41 @@ optimiser's own claim.
 | 11 | Numerical continuation from ZE99 + 1 point, and remove-k/add-(k+1) shaking | ongoing; no feasible 1155 found |
 | 12 | Highly symmetric (group-orbit) configurations in R^13 from PSL(2,13) / PGL(2,13) on the 13-dimensional standard representation | implemented (`dim13/v2/orbits.py`); orbit optimisation did not reach max cos <= 1/2 |
 
+## Running the checks
+
+`.github/workflows/kissing-checks.yml` runs these on every push and pull
+request; they take about two minutes.  Locally, from the repository root:
+
+```bash
+python3 -m pip install numpy scipy-openblas32   # or a system OpenBLAS
+make -C kissing/lib riesz-tools
+
+bash kissing/lib/selftest.sh                          # BLAS engrad vs reference loops
+python3 kissing/lib/test_faithful_841.py              # source-faithful N=841 protocol
+python3 kissing/lib/test_o4_breadth.py --binary-smoke # O(4) breadth seeds
+python3 kissing/lib/analyze_published_841.py          # structural audit of the witness
+```
+
+`make -C kissing/lib blas-check` reports whether the Riesz targets can be built
+without building anything.  The verification tools (`mis8`, `clique`, ...) do
+not link BLAS and build on their own with `make -C kissing/lib verify-tools`.
+
+What the checks are actually protecting, since the numbers in this file depend
+on it: that `riesz.c`'s unmarked default stays the geometric-homotopy GD the
+scoreboard was measured with, that the faithful N=841 path keeps the published
+schedule and the authors' polish rates, that a polish result reaches the
+candidate file at all, that the non-finite guards still fail closed, and that
+the build does not start requiring OpenBLAS for targets that never needed it.
+Each of those has been wrong at least once.
+
+Two things to know when running locally:
+
+* `mis8` rewrites `logs/mis8_n14_s1.txt` as a side effect of the self-check, so
+  a clean tree comes back dirty.  Restore it with
+  `git checkout -- kissing/logs/mis8_n14_s1.txt`.  CI asserts that this is the
+  *only* file the checks modify.
+* `riesz` and `riesz2` are build products, not committed binaries.
+
 ## Code
 
 | file | what it does |
@@ -332,9 +367,12 @@ The three things that look most worth attacking next, in order:
 
 1. **A better optimiser.** The calibration above is the honest bottleneck: the
    published dim-12 method reaches 0.4999999 on a case where this code reaches
-   0.52. An L-BFGS inner solve (rather than gradient descent with a backtracking
-   line search) plus many more restarts would make the dim-13 numerical evidence
-   worth something either way.
+   0.52. `riesz.c` now has an L-BFGS inner solve (`KISS_SOLVER=lbfgs`) and the
+   published Adam schedule (`KISS_SOLVER=adam`), which closed part of that gap
+   -- 0.500477 on the dim-12 calibration. What is still missing is scale: many
+   more restarts, and the authors' batched `(B,N,d)` gradient rather than this
+   one-candidate CPU mode. That is what would make the dim-13 numerical
+   evidence worth something either way.
 2. **Dimension 14 with `dim V = 6`.** 25 supports would give 1600 weight-8
    vectors and 1964 > 1932. Structural cliques of up to 72 supports exist for
    minimum-weight-6 codes; what collapses is the F_2 coset system. A smarter
