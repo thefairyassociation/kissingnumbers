@@ -1,0 +1,1 @@
+2026-08-23T06:40:49.748017+00:00 method='exact E6 Y3 Weyl-orbit enumeration' dimension=13 count=1146 result=fail_record exact=true maximum_y3=320 orbit_size=320 reason='all maximum local E6 fibers are isometric; no count gain'
