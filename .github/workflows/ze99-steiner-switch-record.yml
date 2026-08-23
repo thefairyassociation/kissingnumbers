@@ -52,6 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf kissing/dim13/ze99_steiner_switch_results
+          mkdir -p kissing/dim13/ze99_steiner_switch_results
           python kissing/dim13/search_ze99_steiner_switch.py \
             --output-dir kissing/dim13/ze99_steiner_switch_results \
             --progress-log kissing/dim13/ze99_steiner_switch_progress.log \
@@ -107,7 +108,7 @@ jobs:
               print("integer switch family exhausted without a record")
           PY
 
-      - name: Upload exact outputs
+      - name: Upload exact outputs and source snapshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -116,10 +117,20 @@ jobs:
           path: |
             kissing/dim13/ze99_steiner_switch_results
             kissing/dim13/ze99_steiner_switch_progress.log
+            kissing/dim13/search_ze99_steiner_switch.py
+            kissing/dim13/search_ze99_aux.py
+            kissing/dim13/search_ze99_aux_b2.py
+            kissing/dim13/search_ze99_aux_continuous.py
+            kissing/dim13/ze99_aux_bounded.py
+            kissing/dim13/ze99_aux_core.py
+            kissing/dim13/constructions/ze99.py
+            kissing/dim13/data/ze99_structure.json
 
       - name: Commit completed outputs
-        if: success() && github.event_name == 'push'
+        if: success()
         shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || 'codex/d13-steiner-switch-record' }}
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
@@ -132,5 +143,5 @@ jobs:
             exit 0
           fi
           git commit -m 'Record exact ZE99 Steiner-switch search [skip ci]'
-          git pull --rebase origin codex/d13-steiner-switch-record
-          git push origin HEAD:codex/d13-steiner-switch-record
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin "HEAD:$TARGET_BRANCH"
