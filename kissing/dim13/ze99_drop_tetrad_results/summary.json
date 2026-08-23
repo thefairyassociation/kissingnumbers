@@ -1,0 +1,125 @@
+{
+  "beats_record": false,
+  "best_count": 1154,
+  "completed_deletion_types": [
+    0,
+    1,
+    19,
+    4,
+    5,
+    8
+  ],
+  "expected_deletion_types": [
+    0,
+    1,
+    4,
+    5,
+    8,
+    19
+  ],
+  "results": [
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4712,
+      "drop_index": 0,
+      "dropped_support": [
+        1,
+        2,
+        3,
+        5
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_0",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4424,
+      "drop_index": 1,
+      "dropped_support": [
+        0,
+        3,
+        4,
+        5
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_1",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4488,
+      "drop_index": 19,
+      "dropped_support": [
+        3,
+        5,
+        8,
+        9
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_19",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4744,
+      "drop_index": 4,
+      "dropped_support": [
+        2,
+        3,
+        4,
+        7
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_4",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4552,
+      "drop_index": 5,
+      "dropped_support": [
+        0,
+        2,
+        5,
+        7
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_5",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    },
+    {
+      "beats_record": false,
+      "candidate_count": 1154,
+      "candidate_directions": 4520,
+      "drop_index": 8,
+      "dropped_support": [
+        0,
+        2,
+        3,
+        8
+      ],
+      "path": "kissing/dim13/ze99_drop_tetrad_results/drop_8",
+      "solver_statuses": [
+        "UNKNOWN",
+        "INFEASIBLE"
+      ]
+    }
+  ],
+  "status": "completed"
+}
