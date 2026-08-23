@@ -9,13 +9,22 @@ on:
       - kissing/dim13/search_ze99_steiner_switch.py
       - kissing/dim13/constructions/ze99.py
       - kissing/dim13/data/ze99_structure.json
+  pull_request:
+    branches:
+      - codex/d13-steiner-switch-record
+    paths:
+      - .github/workflows/ze99-steiner-switch-record.yml
+      - kissing/dim13/search_ze99_steiner_switch.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
+      - kissing/dim13/STEINER_SWITCH_TRIGGER.md
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: ze99-steiner-switch-record
+  group: ze99-steiner-switch-record-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out research branch
+      - name: Check out search ref
         uses: actions/checkout@v4
         with:
-          ref: codex/d13-steiner-switch-record
+          ref: ${{ github.event.pull_request.head.ref || 'codex/d13-steiner-switch-record' }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -109,7 +118,7 @@ jobs:
             kissing/dim13/ze99_steiner_switch_progress.log
 
       - name: Commit completed outputs
-        if: success()
+        if: success() && github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
