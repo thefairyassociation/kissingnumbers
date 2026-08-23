@@ -10,13 +10,23 @@ on:
       - kissing/dim13/ze99_aux_core.py
       - kissing/dim13/constructions/ze99.py
       - kissing/dim13/data/ze99_structure.json
+  pull_request:
+    branches:
+      - codex/d13-joint-layer-169
+    paths:
+      - .github/workflows/ze99-joint-layer-169.yml
+      - kissing/dim13/search_ze99_joint_layer.py
+      - kissing/dim13/ze99_aux_core.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
+      - kissing/dim13/JOINT_LAYER_TRIGGER.md
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: ze99-joint-layer-169-${{ github.ref }}
+  group: ze99-joint-layer-169-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -25,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Check out research branch
+      - name: Check out search ref
         uses: actions/checkout@v4
         with:
-          ref: codex/d13-joint-layer-169
+          ref: ${{ github.event.pull_request.head.ref || 'codex/d13-joint-layer-169' }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -125,6 +135,8 @@ jobs:
       - name: Commit completed outputs
         if: success()
         shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || 'codex/d13-joint-layer-169' }}
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
@@ -139,5 +151,5 @@ jobs:
             exit 0
           fi
           git commit -m 'Record exact joint ZE99 layer search [skip ci]'
-          git pull --rebase origin codex/d13-joint-layer-169
-          git push origin HEAD:codex/d13-joint-layer-169
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin "HEAD:$TARGET_BRANCH"
