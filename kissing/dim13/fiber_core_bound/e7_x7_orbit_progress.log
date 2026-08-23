@@ -1,0 +1,1 @@
+2026-08-23T06:34:34.187556+00:00 method='exact E7 X7 Weyl-orbit enumeration' dimension=13 count=1146 result=fail_record exact=true maximum_x7=135 orbit_size=135 reason='all saturated 14-root omissions are isometric; no count gain'
