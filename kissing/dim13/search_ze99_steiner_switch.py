@@ -1,27 +1,25 @@
 #!/usr/bin/env python3
-"""Exact Steiner-switch augmentation search for the ZE99 d=13 configuration.
+"""Exact audit and augmentation search for the ZE99 d=13 diamond shell.
 
-The 1,154-vector Zinoviev--Ericson configuration contains 288 integer
-"diamond" vectors.  Some nonbaseline vectors in the same integer shell
-conflict with exactly one diamond and with no other baseline vector, so they
-can replace that diamond at zero cost.
+A prior structural report claimed that 528 Steiner-style candidates give 264
+independent zero-cost replacements of ZE99 diamond vectors, hence 2^264
+distinct 1,154-point configurations.  This program reconstructs the reported
+3,696-candidate generator and audits that interpretation before using it in a
+record search.
 
-This program reconstructs that switch catalogue from scratch and asks the
-record-relevant question:
+It then asks the record-relevant question:
 
     Is there an additional norm-16 integer vector u such that every baseline
-    conflict of u can be repaired by replacing the conflicted diamond with a
-    mutually compatible one-conflict switch partner?
+    conflict of u can be repaired by a genuine one-conflict replacement?
 
 The fixed tetrad, axial, and irrational layers reduce the complete norm-16
 integer search to the 8,192 vectors
 
     (s_0,...,s_11, t),  s_i in {+1,-1}, t in {+2,-2}.
 
-The reduction and the search use integer arithmetic and exact comparisons in
-Q(sqrt(3)).  A successful 1,155-vector witness is rechecked pairwise by the
-repository's exact Q(sqrt(3)) verifier and emitted with actual algebraic
-coordinate strings.
+All comparisons use integer arithmetic and exact Q(sqrt(3)) inequalities.  A
+successful 1,155-vector witness is rechecked pairwise by the repository's exact
+Q(sqrt(3)) verifier and emitted with actual algebraic coordinate strings.
 """
 
 from __future__ import annotations
@@ -125,6 +123,33 @@ def diamond_shell() -> np.ndarray:
     if len({tuple(row.tolist()) for row in shell}) != len(shell):
         raise SearchError("diamond shell contains duplicates")
     return shell
+
+
+def raw_steiner_candidates() -> np.ndarray:
+    """Reproduce the reported 924 blocks x 4 sign-flips generator.
+
+    Choosing a six-subset B, a global sign s, and the last-coordinate sign
+    emits s on B, -s on the complement, and +/-2 in coordinate 12.  The map is
+    two-to-one because (B, s) and (B^c, -s) produce the same first 12 entries.
+    """
+
+    rows: list[np.ndarray] = []
+    universe = set(range(12))
+    for block_tuple in itertools.combinations(range(12), 6):
+        block = set(block_tuple)
+        complement = universe - block
+        for sign in (1, -1):
+            first = np.empty(12, dtype=np.int16)
+            for index in block:
+                first[index] = sign
+            for index in complement:
+                first[index] = -sign
+            for last in (2, -2):
+                rows.append(np.concatenate([first, np.asarray([last], dtype=np.int16)]))
+    raw = np.vstack(rows)
+    if raw.shape != (3696, DIMENSION):
+        raise SearchError(f"unexpected raw Steiner shape {raw.shape}")
+    return raw
 
 
 def check_non_diamond_compatibility(
@@ -234,14 +259,19 @@ def build_switch_catalog(
     diamonds: np.ndarray,
     non_diamonds: list[list[tuple[int, int]]],
 ) -> tuple[np.ndarray, np.ndarray, dict[int, list[int]], np.ndarray, dict[str, Any]]:
+    """Audit the reported Steiner replacements and return genuine ones only."""
+
     dots = shell.astype(np.int16) @ diamonds.astype(np.int16).T
     conflicts = dots > BOUND
     conflict_counts = np.sum(conflicts, axis=1)
 
-    baseline_keys = {tuple(row.tolist()) for row in diamonds}
+    baseline_keys = {tuple(row.tolist()): index for index, row in enumerate(diamonds)}
     is_baseline = np.asarray(
         [tuple(row.tolist()) in baseline_keys for row in shell], dtype=bool
     )
+
+    # Genuine one-conflict replacements must be new vectors.  Baseline rows
+    # have cset=1 solely because their inner product with themselves is 16.
     replacement_mask = (conflict_counts == 1) & ~is_baseline
     replacements = shell[replacement_mask].copy()
     replacement_groups = np.argmax(conflicts[replacement_mask], axis=1).astype(np.int16)
@@ -254,7 +284,6 @@ def build_switch_catalog(
     for index, group in enumerate(replacement_groups.astype(int).tolist()):
         groups[group].append(index)
     groups = dict(sorted(groups.items()))
-    touchable = np.asarray(sorted(groups), dtype=np.int16)
     rigid = np.asarray(
         [index for index in range(len(diamonds)) if index not in groups],
         dtype=np.int16,
@@ -268,8 +297,13 @@ def build_switch_catalog(
                 f"expected only {group}"
             )
 
-    pair_dots = replacements.astype(np.int16) @ replacements.astype(np.int16).T
-    pair_compatible = pair_dots <= BOUND
+    if len(replacements):
+        pair_dots = replacements.astype(np.int16) @ replacements.astype(np.int16).T
+        pair_compatible = pair_dots <= BOUND
+    else:
+        pair_dots = np.empty((0, 0), dtype=np.int16)
+        pair_compatible = np.empty((0, 0), dtype=bool)
+
     cross_conflicts = 0
     within_conflicts = 0
     for i in range(len(replacements)):
@@ -281,27 +315,83 @@ def build_switch_catalog(
             else:
                 cross_conflicts += 1
 
-    group_size_distribution = Counter(len(value) for value in groups.values())
-    report_match = len(replacements) == 528 and len(groups) == 264 and len(rigid) == 24
+    # Reproduce the exact counting behind the published 528/264 claim.
+    raw = raw_steiner_candidates()
+    check_non_diamond_compatibility(raw, non_diamonds)
+    raw_dots = raw.astype(np.int16) @ diamonds.astype(np.int16).T
+    raw_conflict_counts = np.sum(raw_dots > BOUND, axis=1)
+    raw_cset1 = raw[raw_conflict_counts == 1]
+    unique_raw = np.unique(raw, axis=0)
+    unique_dots = unique_raw.astype(np.int16) @ diamonds.astype(np.int16).T
+    unique_conflict_counts = np.sum(unique_dots > BOUND, axis=1)
+    unique_cset1 = unique_raw[unique_conflict_counts == 1]
 
+    unique_cset1_keys = {tuple(row.tolist()) for row in unique_cset1}
+    cset1_baseline_indices = sorted(
+        baseline_keys[key] for key in unique_cset1_keys if key in baseline_keys
+    )
+    nonbaseline_unique_cset1 = sorted(
+        key for key in unique_cset1_keys if key not in baseline_keys
+    )
+    raw_multiplicity = Counter(tuple(row.tolist()) for row in raw_cset1)
+
+    if len(raw) != 3696 or len(unique_raw) != 1848:
+        raise SearchError("raw Steiner multiplicity audit failed")
+    if len(raw_cset1) != 528 or len(unique_cset1) != 264:
+        raise SearchError(
+            "reported Steiner cset counts were not reproduced: "
+            f"raw={len(raw_cset1)}, unique={len(unique_cset1)}"
+        )
+    if nonbaseline_unique_cset1:
+        raise SearchError(
+            f"unexpected genuine cset-1 candidates: {len(nonbaseline_unique_cset1)}"
+        )
+    if set(raw_multiplicity.values()) != {2}:
+        raise SearchError(
+            f"raw cset-1 multiplicities are not uniformly two: "
+            f"{Counter(raw_multiplicity.values())}"
+        )
+
+    unrepresented_baseline = sorted(set(range(len(diamonds))) - set(cset1_baseline_indices))
+    group_size_distribution = Counter(len(value) for value in groups.values())
     catalogue = {
         "shell_size": len(shell),
         "baseline_diamond_count": len(diamonds),
         "baseline_shell_rows": int(np.count_nonzero(is_baseline)),
         "nonbaseline_shell_rows": int(np.count_nonzero(~is_baseline)),
-        "one_conflict_replacement_candidates": len(replacements),
-        "touchable_directed_diamonds": len(groups),
-        "rigid_directed_diamonds": len(rigid),
-        "rigid_diamond_indices": rigid.astype(int).tolist(),
+        "one_conflict_genuine_replacement_candidates": len(replacements),
+        "genuine_touchable_directed_diamonds": len(groups),
+        "genuine_rigid_directed_diamonds": len(rigid),
+        "genuine_rigid_diamond_indices": rigid.astype(int).tolist(),
         "replacement_group_size_distribution": {
             str(key): value for key, value in sorted(group_size_distribution.items())
         },
         "replacement_pair_conflicts_within_same_group": within_conflicts,
         "replacement_pair_conflicts_across_groups": cross_conflicts,
-        "matches_reported_528_to_264_and_24_skeleton": report_match,
         "conflict_count_distribution_over_shell": {
             str(key): value
             for key, value in sorted(Counter(conflict_counts.astype(int)).items())
+        },
+        "reported_steiner_generator_audit": {
+            "raw_rows": len(raw),
+            "unique_rows": len(unique_raw),
+            "raw_cset1_rows": len(raw_cset1),
+            "unique_cset1_rows": len(unique_cset1),
+            "raw_cset1_multiplicity_distribution": {
+                str(key): value
+                for key, value in sorted(Counter(raw_multiplicity.values()).items())
+            },
+            "unique_cset1_rows_already_in_baseline": len(cset1_baseline_indices),
+            "unique_cset1_rows_not_in_baseline": len(nonbaseline_unique_cset1),
+            "baseline_diamond_indices_reproduced_by_generator": cset1_baseline_indices,
+            "baseline_diamond_indices_absent_from_balanced_generator": unrepresented_baseline,
+            "interpretation": (
+                "The 528 raw cset=1 rows are two copies each of 264 existing "
+                "ZE99 diamonds. Their sole conflict is self-inner-product 16. "
+                "There are zero new cset=1 partners, so the claimed 2^264 "
+                "independent switch family does not follow from this generator."
+            ),
+            "claimed_2_pow_264_switch_family_valid": False,
         },
     }
     return replacements, replacement_groups, groups, pair_compatible, catalogue
@@ -462,9 +552,9 @@ def report_text(analysis: dict[str, Any]) -> str:
         "",
         "The fixed ZE99 tetrad, axial, and irrational layers reduce every compatible",
         "norm-16 integer vector to the 8,192-vector diamond shell. The program",
-        "reconstructs all one-conflict diamond replacements, then exhaustively tests",
-        "whether each shell vector can be added after mutually compatible zero-cost",
-        "repairs of all its diamond conflicts.",
+        "reproduces the reported Steiner generator, distinguishes raw duplicates from",
+        "genuine replacements, then exhaustively tests whether any shell vector can",
+        "be added after valid zero-cost repairs of all its diamond conflicts.",
         "",
         "A positive result is emitted only after the full 1,155-vector configuration",
         "passes the exact Q(sqrt(3)) verifier.",
@@ -543,7 +633,7 @@ def main() -> int:
         catalogue,
     ) = build_switch_catalog(shell, diamonds, non_diamonds)
     touchable = set(groups)
-    rigid = set(catalogue["rigid_diamond_indices"])
+    rigid = set(catalogue["genuine_rigid_diamond_indices"])
     baseline_diamond_keys = {tuple(row.tolist()) for row in diamonds}
 
     diamond_dots = shell.astype(np.int16) @ diamonds.astype(np.int16).T
@@ -675,7 +765,7 @@ def main() -> int:
     analysis: dict[str, Any] = {
         "generated_at": stamp,
         "status": "completed",
-        "method": "exact exhaustive ZE99 one-conflict Steiner-switch augmentation",
+        "method": "exact audit of the reported ZE99 Steiner switches plus exhaustive integer-shell augmentation",
         "dimension": DIMENSION,
         "record": RECORD,
         "candidate_count": candidate_count,
@@ -732,7 +822,7 @@ def main() -> int:
         args.progress_log.parent.mkdir(parents=True, exist_ok=True)
         with args.progress_log.open("a", encoding="utf-8") as log:
             log.write(
-                f"{utcnow()} method='ZE99 exact Steiner-switch augmentation' "
+                f"{utcnow()} method='ZE99 exact Steiner-switch audit and augmentation' "
                 f"dimension=13 count={candidate_count} "
                 f"result={'pass' if success else 'fail'} exact=true "
                 "integer_family_exhausted=true\n"
