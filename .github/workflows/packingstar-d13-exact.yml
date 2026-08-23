@@ -1,0 +1,123 @@
+name: PackingStar d13 exact validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/packingstar-d13-exact.yml
+      - kissing/dim13/verifier.py
+      - kissing/dim13/_verifier_impl.py
+      - kissing/dim13/test_verifier.py
+      - kissing/dim13/packingstar/analyze_packingstar.py
+      - kissing/dim13/packingstar/_analyze_packingstar_impl.py
+      - kissing/dim13/packingstar/fetch_source.py
+      - kissing/dim13/packingstar/source_lock.json
+      - kissing/dim13/packingstar/test_support.py
+      - kissing/dim13/packingstar/results/analysis.json
+      - kissing/dim13/packingstar/results/REPORT.md
+      - kissing/dim13/packingstar/results/best.json
+      - kissing/dim13/packingstar/results/archive.sha256
+      - kissing/dim13/packingstar/results/configs/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned exact-analysis dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 scipy==1.15.3 sympy==1.14.0
+
+      - name: Run verifier and source-lock regression tests
+        run: |
+          set -euo pipefail
+          (cd kissing/dim13 && python test_verifier.py)
+          (cd kissing/dim13/packingstar && python test_support.py)
+
+      - name: Fetch the pinned PackingStar archive
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/packingstar
+          mkdir -p /tmp/packingstar/input
+          python kissing/dim13/packingstar/fetch_source.py \
+            --archive /tmp/packingstar/source.zip \
+            --extract-dir /tmp/packingstar/unpacked
+          for name in \
+            13D-1146-cosmatrix.npy \
+            13D-1146-cosmatrix_variant_1.npy
+          do
+            source="$(find /tmp/packingstar/unpacked -type f -name "$name" -print -quit)"
+            test -n "$source"
+            cp "$source" "/tmp/packingstar/input/$name"
+          done
+          test "$(find /tmp/packingstar/input -maxdepth 1 -type f | wc -l)" -eq 2
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+          lock = json.loads(Path('kissing/dim13/packingstar/source_lock.json').read_text())
+          print(f"PACKINGSTAR_SOURCE_REVISION={lock['commit']}")
+          PY
+
+      - name: Reconstruct every selected matrix exactly
+        run: |
+          set -euo pipefail
+          python kissing/dim13/packingstar/analyze_packingstar.py \
+            --input-dir /tmp/packingstar/input \
+            --output-dir /tmp/packingstar/results \
+            --progress-log /tmp/packingstar/progress.log \
+            --skip-hole-search \
+            --deterministic-output
+
+      - name: Verify generated coordinate certificates with the canonical verifier
+        run: |
+          set -euo pipefail
+          python kissing/dim13/verifier.py \
+            /tmp/packingstar/results/configs/13D-1146-cosmatrix_exact.json
+          python kissing/dim13/verifier.py \
+            /tmp/packingstar/results/configs/13D-1146-cosmatrix_variant_1_exact.json
+
+      - name: Verify the committed coordinate certificates
+        run: |
+          set -euo pipefail
+          python kissing/dim13/verifier.py \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_exact.json
+          python kissing/dim13/verifier.py \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_variant_1_exact.json
+
+      - name: Prove validation did not modify the checkout
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Upload deterministic validation outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packingstar-d13-exact-${{ github.sha }}
+          if-no-files-found: error
+          path: /tmp/packingstar/results

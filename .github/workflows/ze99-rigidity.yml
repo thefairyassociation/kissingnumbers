@@ -1,0 +1,85 @@
+name: ZE99 exact finite-field rigidity research run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ze99-rigidity-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  rigidity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the dispatched commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build SpaSM at the pinned revision
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config fflas-ffpack libopenblas-dev
+          git clone https://github.com/cbouilla/spasm.git /tmp/spasm
+          git -C /tmp/spasm checkout 09c40943f1d4b754f89fb97fc9ddf2b8e53e967e
+          make -C /tmp/spasm -j2
+
+      - name: Generate exact reduced rigidity matrices
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ze99-rigidity/results
+          python kissing/dim13/rigidity/generate_ze99_rigidity.py \
+            --prime 11 --sqrt3-root 5 \
+            --output-matrix /tmp/ze99-rigidity/ze99_p11.mtx \
+            --output-json /tmp/ze99-rigidity/results/matrix_p11.json \
+            | tee /tmp/ze99-rigidity/results/generator_p11.log
+          python kissing/dim13/rigidity/generate_ze99_rigidity.py \
+            --prime 13 --sqrt3-root 4 \
+            --output-matrix /tmp/ze99-rigidity/ze99_p13.mtx \
+            --output-json /tmp/ze99-rigidity/results/matrix_p13.json \
+            | tee /tmp/ze99-rigidity/results/generator_p13.log
+          sha256sum /tmp/ze99-rigidity/*.mtx \
+            > /tmp/ze99-rigidity/results/matrix_sha256.txt
+
+      - name: Compute exact finite-field ranks
+        env:
+          OMP_NUM_THREADS: '2'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /tmp/spasm/build/tools/rank \
+            --modulus 11 \
+            --matrix /tmp/ze99-rigidity/ze99_p11.mtx \
+            --certificate \
+            --output /tmp/ze99-rigidity/rank_p11.certificate \
+            2>&1 | tee /tmp/ze99-rigidity/results/rank_p11.log
+          /tmp/spasm/build/tools/rank \
+            --modulus 13 \
+            --matrix /tmp/ze99-rigidity/ze99_p13.mtx \
+            2>&1 | tee /tmp/ze99-rigidity/results/rank_p13.log
+          gzip -9 /tmp/ze99-rigidity/rank_p11.certificate
+          sha256sum /tmp/ze99-rigidity/rank_p11.certificate.gz \
+            > /tmp/ze99-rigidity/results/certificate_sha256.txt
+
+      - name: Upload exact matrices, logs, and certificate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-rigidity-${{ github.sha }}
+          if-no-files-found: warn
+          compression-level: 9
+          path: /tmp/ze99-rigidity

@@ -1,0 +1,54 @@
+name: ZE99 auxiliary trade-scan smoke validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/ze99-aux-trade-scan.yml
+      - kissing/dim13/search_ze99_aux_trade_scan.py
+      - kissing/dim13/ze99_aux_core.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 scipy==1.15.3
+      - name: Exercise the trade scan without mutating the branch
+        run: |
+          set -euo pipefail
+          python kissing/dim13/search_ze99_aux_trade_scan.py \
+            --output-dir /tmp/ze99_aux_trade_results \
+            --samples 32 \
+            --progress-log /tmp/ze99_aux_trade_progress.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-aux-trade-smoke-${{ github.sha }}
+          if-no-files-found: warn
+          path: /tmp/ze99_aux_trade_results
+      - name: Prove validation was read-only
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
