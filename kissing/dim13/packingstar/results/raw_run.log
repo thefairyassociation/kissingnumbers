@@ -70,7 +70,7 @@ ANALYZE /tmp/packingstar/13D_rational_configurations/13D-1146-cosmatrix.npy
     "success": true,
     "starts": 90,
     "successful_lp_solves": 331,
-    "best_polytope_norm": 0.9354143466934854,
+    "best_polytope_norm": 0.9354143466934856,
     "best_iterations": 2,
     "single_point_addition_numerically_possible": false,
     "normalized_candidate_max_inner": 0.5345224838248491,
