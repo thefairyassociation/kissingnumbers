@@ -32,9 +32,9 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     strategy:
       fail-fast: false
-      max-parallel: 6
+      max-parallel: 7
       matrix:
-        drop: [0, 1, 4, 5, 8, 19]
+        drop: [0, 1, 4, 5, 8, 11, 19]
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -52,7 +52,7 @@ jobs:
       - name: Install exact finite-search dependencies
         run: python -m pip install --disable-pip-version-check numpy ortools sympy
 
-      - name: Search deletion type ${{ matrix.drop }}
+      - name: Search deletion orbit representative ${{ matrix.drop }}
         shell: bash
         run: |
           set -euo pipefail
@@ -141,6 +141,7 @@ jobs:
           import shutil
           from pathlib import Path
 
+          expected = [0, 1, 4, 5, 8, 11, 19]
           root = Path('kissing/dim13/ze99_drop_tetrad_results')
           analyses = []
           for path in sorted(root.glob('drop_*/analysis.json')):
@@ -158,9 +159,11 @@ jobs:
               raise SystemExit('no completed deletion analyses were downloaded')
           winners = [item for item in analyses if item['beats_record']]
           summary = {
-              'status': 'completed' if len(analyses) == 6 else 'partial',
-              'expected_deletion_types': [0, 1, 4, 5, 8, 19],
-              'completed_deletion_types': [item['drop_index'] for item in analyses],
+              'status': 'completed' if len(analyses) == len(expected) else 'partial',
+              'coordinate_automorphism_group_order': 12,
+              'tetrad_support_orbit_sizes': [12, 6, 6, 3, 12, 6, 6],
+              'expected_orbit_representatives': expected,
+              'completed_orbit_representatives': [item['drop_index'] for item in analyses],
               'beats_record': bool(winners),
               'best_count': max((item['candidate_count'] for item in analyses), default=1154),
               'results': analyses,
@@ -169,7 +172,9 @@ jobs:
           lines = [
               '# One-tetrad-deletion exact search summary',
               '',
-              f"- Completed deletion types: **{len(analyses)}/6**.",
+              f"- Completed support orbits: **{len(analyses)}/{len(expected)}**.",
+              '- Coordinate automorphism group order: **12**.',
+              '- Support orbit sizes: **12, 6, 6, 3, 12, 6, 6**.',
               f"- Exact record witness found: **{bool(winners)}**.",
               f"- Best verified count: **{summary['best_count']}**.",
               '',
