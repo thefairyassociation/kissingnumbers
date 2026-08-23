@@ -1,31 +1,33 @@
-name: Exact PackingStar dimension-13 reconstruction
+name: Refresh PackingStar d13 exact results
 
 on:
-  push:
-    branches:
-      - codex/d13-packingstar-exact
-    paths:
-      - .github/workflows/d13-packingstar-exact.yml
-      - kissing/dim13/packingstar/**
   workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Existing branch to update
+        required: true
+        default: codex/d13-packingstar-exact
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: d13-packingstar-exact
+  group: packingstar-d13-refresh-${{ inputs.target_ref }}
   cancel-in-progress: false
 
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
 jobs:
-  verify:
-    if: github.actor != 'github-actions[bot]'
+  refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Check out research branch
+      - name: Check out the requested branch
         uses: actions/checkout@v4
         with:
-          ref: codex/d13-packingstar-exact
+          ref: ${{ inputs.target_ref }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -33,62 +35,99 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install exact and numerical dependencies
-        run: python -m pip install --disable-pip-version-check numpy sympy scipy
+      - name: Install pinned exact-analysis dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 scipy==1.15.3 sympy==1.14.0
 
-      - name: Download the public PackingStar dimension-13 archive
-        shell: bash
+      - name: Run verifier and source-lock regression tests
         run: |
           set -euo pipefail
-          rm -rf /tmp/packingstar13
-          mkdir -p /tmp/packingstar13/source
-          curl --fail --location --retry 5 --retry-all-errors \
-            --output /tmp/packingstar13/source.zip \
-            https://raw.githubusercontent.com/CDM1619/PackingStar/main/13D_rational_configurations/13D_rational_configurations.zip
-          unzip -q /tmp/packingstar13/source.zip -d /tmp/packingstar13/source
-          sha256sum /tmp/packingstar13/source.zip
-          find /tmp/packingstar13/source -type f -maxdepth 4 -print | sort
+          (cd kissing/dim13 && python test_verifier.py)
+          (cd kissing/dim13/packingstar && python test_support.py)
 
-      - name: Reconstruct and verify in exact arithmetic
-        shell: bash
+      - name: Fetch the pinned PackingStar archive
         run: |
           set -euo pipefail
-          rm -rf kissing/dim13/packingstar/results
-          # Keep the committed diagnostic exhaustive; use a bounded copy in CI so
-          # the exact proof, rather than thousands of optional LP solves, controls runtime.
-          cp kissing/dim13/packingstar/analyze_packingstar.py /tmp/analyze_packingstar.py
-          sed -i 's/starts: int = 64/starts: int = 12/' /tmp/analyze_packingstar.py
-          sed -i 's/for iteration in range(40)/for iteration in range(16)/' /tmp/analyze_packingstar.py
-          python /tmp/analyze_packingstar.py \
-            --input-dir /tmp/packingstar13/source \
+          rm -rf /tmp/packingstar
+          mkdir -p /tmp/packingstar/input
+          python kissing/dim13/packingstar/fetch_source.py \
+            --archive /tmp/packingstar/source.zip \
+            --extract-dir /tmp/packingstar/unpacked
+          for name in \
+            13D-1146-cosmatrix.npy \
+            13D-1146-cosmatrix_variant_1.npy
+          do
+            source="$(find /tmp/packingstar/unpacked -type f -name "$name" -print -quit)"
+            test -n "$source"
+            cp "$source" "/tmp/packingstar/input/$name"
+          done
+          test "$(find /tmp/packingstar/input -maxdepth 1 -type f | wc -l)" -eq 2
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+          lock = json.loads(Path('kissing/dim13/packingstar/source_lock.json').read_text())
+          print(f"PACKINGSTAR_SOURCE_REVISION={lock['commit']}")
+          PY
+
+      - name: Regenerate deterministic exact outputs
+        run: |
+          set -euo pipefail
+          mkdir -p kissing/dim13/packingstar/results
+          python kissing/dim13/packingstar/analyze_packingstar.py \
+            --input-dir /tmp/packingstar/input \
             --output-dir kissing/dim13/packingstar/results \
-            --progress-log kissing/dim13/progress.log \
-            | tee kissing/dim13/packingstar/workflow_output.txt
+            --progress-log /tmp/packingstar/progress.log \
+            --skip-hole-search \
+            --deterministic-output
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path('kissing/dim13/packingstar/source_lock.json').read_text())
+          Path('kissing/dim13/packingstar/results/archive.sha256').write_text(
+              f"{lock['archive_sha256']}  {Path(lock['archive_path']).name}\n"
+          )
+          PY
 
-      - name: Upload exact certificates and logs
-        if: always()
+      - name: Verify both regenerated certificates independently
+        run: |
+          set -euo pipefail
+          python kissing/dim13/verifier.py \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_exact.json
+          python kissing/dim13/verifier.py \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_variant_1_exact.json
+          ! grep -R '"generated_at"' \
+            kissing/dim13/packingstar/results/analysis.json
+          ! grep -q '^Generated ' kissing/dim13/packingstar/results/REPORT.md
+
+      - name: Upload deterministic refresh outputs
         uses: actions/upload-artifact@v4
         with:
-          name: d13-packingstar-exact
-          if-no-files-found: warn
+          name: packingstar-d13-refresh-${{ github.sha }}
+          if-no-files-found: error
           path: |
-            kissing/dim13/packingstar/results
-            kissing/dim13/packingstar/workflow_output.txt
-            kissing/dim13/progress.log
+            kissing/dim13/packingstar/results/analysis.json
+            kissing/dim13/packingstar/results/REPORT.md
+            kissing/dim13/packingstar/results/best.json
+            kissing/dim13/packingstar/results/archive.sha256
+            kissing/dim13/packingstar/results/configs
 
-      - name: Commit verified results to the research branch
-        if: success()
-        shell: bash
+      - name: Commit only deterministic result files
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add kissing/dim13/packingstar/results \
-                  kissing/dim13/packingstar/workflow_output.txt \
-                  kissing/dim13/progress.log
+          git add \
+            kissing/dim13/packingstar/results/analysis.json \
+            kissing/dim13/packingstar/results/REPORT.md \
+            kissing/dim13/packingstar/results/best.json \
+            kissing/dim13/packingstar/results/archive.sha256 \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_exact.json \
+            kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_variant_1_exact.json
           if git diff --cached --quiet; then
-            echo 'No generated changes to commit.'
+            echo 'Deterministic outputs already match the branch.'
             exit 0
           fi
-          git commit -m 'Record exact PackingStar dimension-13 reconstruction [skip ci]'
-          git push origin HEAD:codex/d13-packingstar-exact
+          git commit -m 'Refresh pinned PackingStar exact certificates [skip ci]'
+          git pull --rebase origin "${{ inputs.target_ref }}"
+          git push origin "HEAD:${{ inputs.target_ref }}"

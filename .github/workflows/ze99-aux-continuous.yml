@@ -1,49 +1,43 @@
-name: Search continuous ZE99 auxiliary layer
+name: ZE99 continuous auxiliary-layer research run
 
 on:
-  push:
-    branches:
-      - codex/d13-packingstar-exact
-    paths:
-      - .github/workflows/ze99-aux-continuous.yml
-      - kissing/dim13/search_ze99_aux_continuous.py
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: ze99-aux-continuous
+  group: ze99-aux-continuous-${{ github.sha }}
   cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
   search:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - name: Check out research branch
+      - name: Check out the dispatched commit
         uses: actions/checkout@v4
         with:
-          ref: codex/d13-packingstar-exact
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install search dependencies
-        run: python -m pip install --disable-pip-version-check numpy scipy
+      - run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 scipy==1.15.3
 
       - name: Search finite slab vertices and continuous 25-codes
-        shell: bash
         run: |
           set -euo pipefail
-          rm -rf kissing/dim13/ze99_aux_continuous_results
           python kissing/dim13/search_ze99_aux_continuous.py \
-            --output-dir kissing/dim13/ze99_aux_continuous_results \
-            --progress-log kissing/dim13/ze99_aux_continuous_progress.log \
+            --output-dir /tmp/ze99_aux_continuous_results \
+            --progress-log /tmp/ze99_aux_continuous_progress.log \
             --random-directions 1800 \
             --fixed-point-rounds 3 \
             --greedy-rounds 2200 \
@@ -52,31 +46,15 @@ jobs:
             --milp-seconds 240 \
             --restarts 10 \
             --lbfgs-maxiter 280 \
-            | tee kissing/dim13/ze99_aux_continuous_results/raw_run.log
+            | tee /tmp/ze99_aux_continuous.log
 
-      - name: Upload checkpoints and numerical candidates
+      - name: Upload research outputs without changing the branch
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ze99-aux-continuous
+          name: ze99-aux-continuous-${{ github.sha }}
           if-no-files-found: warn
           path: |
-            kissing/dim13/ze99_aux_continuous_results
-            kissing/dim13/ze99_aux_continuous_progress.log
-
-      - name: Commit completed search output
-        if: success()
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add kissing/dim13/ze99_aux_continuous_results \
-                  kissing/dim13/ze99_aux_continuous_progress.log
-          if git diff --cached --quiet; then
-            echo 'No generated changes to commit.'
-            exit 0
-          fi
-          git commit -m 'Record continuous ZE99 auxiliary-layer search [skip ci]'
-          git pull --rebase origin codex/d13-packingstar-exact
-          git push origin HEAD:codex/d13-packingstar-exact
+            /tmp/ze99_aux_continuous_results
+            /tmp/ze99_aux_continuous_progress.log
+            /tmp/ze99_aux_continuous.log

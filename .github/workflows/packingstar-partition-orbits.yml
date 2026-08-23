@@ -1,98 +1,63 @@
-name: PackingStar partition-orbit search
+name: PackingStar partition-orbit research run
 
 on:
-  push:
-    branches:
-      - codex/d13-packingstar-exact
-    paths:
-      - kissing/dim13/packingstar/search_partition_orbits.py
-      - .github/workflows/packingstar-partition-orbits.yml
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: packingstar-partition-orbits
+  group: packingstar-partition-orbits-${{ github.sha }}
   cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
   search:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - name: Check out research branch
+      - name: Check out the dispatched commit
         uses: actions/checkout@v4
         with:
-          ref: codex/d13-packingstar-exact
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
 
-      - name: Install exact and numerical dependencies
-        run: python -m pip install --disable-pip-version-check numpy sympy scipy
+      - run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 scipy==1.15.3 sympy==1.14.0
 
-      - name: Download PackingStar's non-antipodal dimension-13 matrix
-        shell: bash
+      - name: Fetch the pinned PackingStar source
         run: |
           set -euo pipefail
-          rm -rf /tmp/packingstar_partition_orbits
-          mkdir -p /tmp/packingstar_partition_orbits/unpacked
-          curl --fail --location --retry 5 --retry-all-errors \
-            --output /tmp/packingstar_partition_orbits/source.zip \
-            https://raw.githubusercontent.com/CDM1619/PackingStar/main/13D_rational_configurations/13D_rational_configurations.zip
-          unzip -q /tmp/packingstar_partition_orbits/source.zip \
-            -d /tmp/packingstar_partition_orbits/unpacked
-          find /tmp/packingstar_partition_orbits/unpacked -maxdepth 6 -type f -print | sort
-          MATRIX="$(find /tmp/packingstar_partition_orbits/unpacked -maxdepth 6 \
-            -type f -name '13D-1146-cosmatrix_variant_1.npy' | head -n 1)"
-          test -n "$MATRIX"
-          echo "MATRIX=$MATRIX" >> "$GITHUB_ENV"
-          sha256sum "$MATRIX"
+          python kissing/dim13/packingstar/fetch_source.py \
+            --archive /tmp/packingstar-partitions.zip \
+            --extract-dir /tmp/packingstar-partitions
+          matrix="$(find /tmp/packingstar-partitions -type f \
+            -name '13D-1146-cosmatrix_variant_1.npy' -print -quit)"
+          test -n "$matrix"
+          echo "MATRIX=$matrix" >> "$GITHUB_ENV"
 
-      - name: Construct and verify all 13 E6 partition-orbit variants
-        shell: bash
+      - name: Construct and verify all partition-orbit variants
         run: |
           set -euo pipefail
-          rm -rf kissing/dim13/packingstar/partition_orbit_results
           python kissing/dim13/packingstar/search_partition_orbits.py \
             --matrix "$MATRIX" \
-            --output-dir kissing/dim13/packingstar/partition_orbit_results \
-            | tee /tmp/packingstar_partition_orbits/raw_run.log
-          cp /tmp/packingstar_partition_orbits/raw_run.log \
-            kissing/dim13/packingstar/partition_orbit_results/raw_run.log
+            --output-dir /tmp/partition_orbit_results \
+            | tee /tmp/partition_orbit_results.log
 
-      - name: Upload exact certificates and diagnostics
+      - name: Upload research outputs without changing the branch
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: packingstar-partition-orbit-results
+          name: packingstar-partition-orbits-${{ github.sha }}
           if-no-files-found: warn
-          path: kissing/dim13/packingstar/partition_orbit_results
-
-      - name: Commit completed results
-        if: success()
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add kissing/dim13/packingstar/partition_orbit_results
-          if git diff --cached --quiet; then
-            echo 'No generated changes to commit.'
-            exit 0
-          fi
-          git commit -m 'Record exact PackingStar partition-orbit search [skip ci]'
-          for attempt in 1 2 3 4; do
-            git pull --rebase origin codex/d13-packingstar-exact
-            if git push origin HEAD:codex/d13-packingstar-exact; then
-              exit 0
-            fi
-            sleep $((attempt * 5))
-          done
-          exit 1
+          path: |
+            /tmp/partition_orbit_results
+            /tmp/partition_orbit_results.log

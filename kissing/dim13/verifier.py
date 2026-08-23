@@ -1,374 +1,363 @@
 #!/usr/bin/env python3
-"""Exact kissing-number verifier.
+"""Canonical exact verifier with coefficient/radicand schema support.
 
-A configuration is a list of n-dimensional vectors with coordinates in a
-number field (Q, Q(sqrt(d)), or a product of quadratic fields) represented
-either as:
+The original symbolic verifier lives in ``_verifier_impl.py``.  This entry point
+preserves that API and adds the exact schema emitted by the PackingStar
+reconstruction:
 
-* strings understood by sympy (e.g. "2", "-2*sqrt(3)", "(1 + sqrt(5))/2"), or
-* integer / Rational tuples, optionally with a shared squared-norm.
+``x[i,j] = coefficient[i,j] * sqrt(coordinate_radicands[j])``.
 
-The kissing condition for unit vectors is max_{i!=j} <vi,vj> <= 1/2.
-Equal-norm vectors may be stored un-normalized: we check
-2 <vi,vj> <= ||vi||^2 with all norms equal, which is equivalent.
-
-Never uses floating-point for the certificate.
+Because each radicand is shared by an entire coordinate column, every norm and
+inner product is a rational weighted dot product.  The fast path below evaluates
+those products with ``fractions.Fraction`` and never uses floating point.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from fractions import Fraction
+from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-import sympy as sp
+
+_IMPL_PATH = Path(__file__).with_name("_verifier_impl.py")
+_SPEC = importlib.util.spec_from_file_location("kissing_dim13_verifier_impl", _IMPL_PATH)
+if _SPEC is None or _SPEC.loader is None:
+    raise ImportError(f"cannot load exact verifier implementation at {_IMPL_PATH}")
+_impl = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = _impl
+_SPEC.loader.exec_module(_impl)
+
+for _name in dir(_impl):
+    if not _name.startswith("_"):
+        globals()[_name] = getattr(_impl, _name)
+
+RADICAND_MODEL = "x[i,j] = coefficient[i,j] * sqrt(radicand[j])"
 
 
-HALF = sp.Rational(1, 2)
+def parse_fraction(value: Any, *, label: str = "value") -> Fraction:
+    """Parse an exact rational and reject floating-point input."""
+    if isinstance(value, float):
+        raise ValueError(f"float {label}s are not allowed in the exact verifier")
+    if isinstance(value, Fraction):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return Fraction(value, 1)
+    if isinstance(value, dict) and "num" in value and "den" in value:
+        numerator = value["num"]
+        denominator = value["den"]
+        if not isinstance(numerator, int) or isinstance(numerator, bool):
+            raise TypeError(f"{label} numerator must be an integer: {numerator!r}")
+        if not isinstance(denominator, int) or isinstance(denominator, bool):
+            raise TypeError(f"{label} denominator must be an integer: {denominator!r}")
+        return Fraction(numerator, denominator)
+    if isinstance(value, str):
+        try:
+            return Fraction(value.strip())
+        except (ValueError, ZeroDivisionError):
+            expression = _impl.parse_coord(value)
+            if expression.is_rational:
+                return Fraction(int(expression.p), int(expression.q))
+            raise ValueError(f"{label} must be rational, got {value!r}")
+    # SymPy Rational/Integer objects expose exact p/q attributes.
+    if getattr(value, "is_rational", False) and hasattr(value, "p") and hasattr(value, "q"):
+        return Fraction(int(value.p), int(value.q))
+    raise TypeError(f"unsupported rational {label} type {type(value)!r}: {value!r}")
 
 
-def parse_coord(x: Any) -> sp.Expr:
-    if isinstance(x, sp.Expr):
-        return sp.simplify(sp.nsimplify(x, rational=True))
-    if isinstance(x, (int, sp.Integer)):
-        return sp.Integer(x)
-    if isinstance(x, Fraction):
-        return sp.Rational(x.numerator, x.denominator)
-    if isinstance(x, float):
-        raise ValueError("float coordinates are not allowed in the exact verifier")
-    if isinstance(x, str):
-        expr = sp.sympify(x, evaluate=True)
-        return sp.simplify(expr)
-    if isinstance(x, dict) and "num" in x and "den" in x:
-        return sp.Rational(x["num"], x["den"])
-    raise TypeError(f"unsupported coordinate type {type(x)!r}: {x!r}")
-
-
-def parse_vector(v: Sequence[Any]) -> tuple[sp.Expr, ...]:
-    return tuple(parse_coord(c) for c in v)
-
-
-def inner(u: Sequence[sp.Expr], v: Sequence[sp.Expr]) -> sp.Expr:
-    if len(u) != len(v):
-        raise ValueError("dimension mismatch")
-    s = sp.Integer(0)
-    for a, b in zip(u, v):
-        s += a * b
-    return sp.expand(s)
-
-
-def norm2(v: Sequence[sp.Expr]) -> sp.Expr:
-    return inner(v, v)
-
-
-def vectors_equal(u: Sequence[sp.Expr], v: Sequence[sp.Expr]) -> bool:
-    return all(sp.expand(a - b) == 0 for a, b in zip(u, v))
-
-
-def leq_half_unit_inner(ip: sp.Expr) -> bool:
-    """Return True iff ip <= 1/2 exactly."""
-    diff = sp.simplify(sp.expand(HALF - ip))
-    if diff == 0:
-        return True
-    # Positive iff 1/2 - ip >= 0.
-    try:
-        return bool(sp.ask(sp.Q.nonnegative(diff)))
-    except Exception:
-        pass
-    # Fall back to isolating radicals by comparing to zero via squared
-    # minimal polynomial sign when the expression is real algebraic.
-    num = sp.N(diff, 80)
-    if num.is_number and abs(float(num)) < 1e-40:
-        # Ambiguous numerically — force algebraic comparison.
-        return sp.simplify(diff) == 0
-    # Exact: rewrite as a real algebraic and test the sign of a primitive element.
-    rdiff = sp.simplify(diff)
-    if rdiff.is_rational:
-        return rdiff >= 0
-    # Use exact comparison of algebraic number to 0.
-    try:
-        alg = sp.AlgebraicNumber(rdiff)
-        # AlgebraicNumber comparison to 0 via isolating interval.
-        return alg >= 0
-    except (ValueError, NotImplementedError, TypeError):
-        # Last resort: evaluate all conjugates / use evalf with huge precision
-        # only as a sanity check, then require the simplified difference to
-        # have a proven nonnegative minimal polynomial evaluation.
-        val = sp.simplify(rdiff.evalf(200))
-        if val.is_number and val > 1e-50:
-            # Not a proof. Refuse.
+def _prepare_weighted_rationals(
+    vectors: Sequence[Sequence[Any]],
+    coordinate_radicands: Sequence[Any],
+    *,
+    dim: int | None,
+) -> tuple[list[tuple[Fraction, ...]], list[tuple[Fraction, ...]], int]:
+    if not vectors:
+        raise ValueError("empty configuration")
+    points = [
+        tuple(parse_fraction(value, label="coordinate coefficient") for value in row)
+        for row in vectors
+    ]
+    dimension = len(points[0])
+    if dim is not None and dimension != dim:
+        raise ValueError(f"expected dimension {dim}, got {dimension}")
+    if any(len(row) != dimension for row in points):
+        raise ValueError("ragged vectors")
+    if len(coordinate_radicands) != dimension:
+        raise ValueError(
+            f"expected {dimension} coordinate radicands, got {len(coordinate_radicands)}"
+        )
+    weights = tuple(
+        parse_fraction(value, label="coordinate radicand")
+        for value in coordinate_radicands
+    )
+    for index, weight in enumerate(weights):
+        if weight <= 0:
             raise ValueError(
-                f"could not prove {ip} <= 1/2 exactly (diff={rdiff})"
+                f"coordinate radicand {index} must be positive, got {weight}"
             )
-        if val.is_number and val < -1e-50:
-            return False
-        raise ValueError(f"could not decide sign of {rdiff}")
+    weighted_points = [
+        tuple(coefficient * weight for coefficient, weight in zip(row, weights))
+        for row in points
+    ]
+    return points, weighted_points, dimension
+
+
+def _weighted_inner(
+    weighted_left: Sequence[Fraction], right: Sequence[Fraction]
+) -> Fraction:
+    total = Fraction(0)
+    for left, right_coordinate in zip(weighted_left, right):
+        total += left * right_coordinate
+    return total
+
+
+def _verify_weighted_unit(
+    vectors: Sequence[Sequence[Any]],
+    coordinate_radicands: Sequence[Any],
+    *,
+    dim: int | None,
+    max_inner: Any,
+) -> dict[str, Any]:
+    points, weighted_points, dimension = _prepare_weighted_rationals(
+        vectors, coordinate_radicands, dim=dim
+    )
+    count = len(points)
+    bound = parse_fraction(max_inner, label="inner-product bound")
+
+    for index, (point, weighted_point) in enumerate(zip(points, weighted_points)):
+        squared_norm = _weighted_inner(weighted_point, point)
+        if squared_norm != 1:
+            return {
+                "ok": False,
+                "reason": f"vector {index} has norm^2 = {squared_norm} != 1",
+                "count": count,
+                "dim": dimension,
+                "coordinate_radicands_applied": True,
+            }
+
+    seen: dict[tuple[Fraction, ...], int] = {}
+    duplicate_count = 0
+    for index, point in enumerate(points):
+        if point in seen:
+            duplicate_count += 1
+        else:
+            seen[point] = index
+
+    tight_pairs = 0
+    worst: Fraction | None = None
+    worst_pair: tuple[int, int] | None = None
+    for left_index, weighted_left in enumerate(weighted_points):
+        for right_index in range(left_index + 1, count):
+            inner_product = _weighted_inner(weighted_left, points[right_index])
+            if inner_product > bound:
+                return {
+                    "ok": False,
+                    "reason": (
+                        f"inner product vectors {left_index},{right_index} = "
+                        f"{inner_product} > {bound}"
+                    ),
+                    "count": count,
+                    "dim": dimension,
+                    "violating_inner": str(inner_product),
+                    "coordinate_radicands_applied": True,
+                }
+            if inner_product == bound:
+                tight_pairs += 1
+            if worst is None or inner_product > worst:
+                worst = inner_product
+                worst_pair = (left_index, right_index)
+
+    distinct = duplicate_count == 0
+    return {
+        "ok": distinct,
+        "count": count,
+        "dim": dimension,
+        "distinct": distinct,
+        "n_duplicate_pairs": duplicate_count,
+        "n_tight_pairs": tight_pairs,
+        "max_offdiag": str(worst) if worst is not None else None,
+        "max_offdiag_pair": worst_pair,
+        "bound": str(bound),
+        "all_unit": True,
+        "all_offdiag_leq_bound": True,
+        "coordinate_radicands_applied": True,
+        "coordinate_model": RADICAND_MODEL,
+    }
+
+
+def _verify_weighted_equal_norm(
+    vectors: Sequence[Sequence[Any]],
+    coordinate_radicands: Sequence[Any],
+    *,
+    dim: int | None,
+) -> dict[str, Any]:
+    points, weighted_points, dimension = _prepare_weighted_rationals(
+        vectors, coordinate_radicands, dim=dim
+    )
+    count = len(points)
+    norms = [
+        _weighted_inner(weighted, point)
+        for weighted, point in zip(weighted_points, points)
+    ]
+    norm = norms[0]
+    if norm == 0:
+        return {"ok": False, "reason": "zero vector", "count": count, "dim": dimension}
+    for index, squared_norm in enumerate(norms):
+        if squared_norm != norm:
+            return {
+                "ok": False,
+                "reason": f"unequal norms: ||v0||^2={norm}, ||v{index}||^2={squared_norm}",
+                "count": count,
+                "dim": dimension,
+                "coordinate_radicands_applied": True,
+            }
+
+    seen: dict[tuple[Fraction, ...], int] = {}
+    for index, point in enumerate(points):
+        if point in seen:
+            return {
+                "ok": False,
+                "reason": f"duplicate vectors {seen[point]} and {index}",
+                "count": count,
+                "dim": dimension,
+                "coordinate_radicands_applied": True,
+            }
+        seen[point] = index
+
+    bound = norm / 2
+    tight_pairs = 0
+    worst: Fraction | None = None
+    worst_pair: tuple[int, int] | None = None
+    for left_index, weighted_left in enumerate(weighted_points):
+        for right_index in range(left_index + 1, count):
+            inner_product = _weighted_inner(weighted_left, points[right_index])
+            if inner_product > bound:
+                return {
+                    "ok": False,
+                    "reason": (
+                        f"inner product vectors {left_index},{right_index} = "
+                        f"{inner_product} > half-norm {bound}"
+                    ),
+                    "count": count,
+                    "dim": dimension,
+                    "violating_inner": str(inner_product),
+                    "norm2": str(norm),
+                    "coordinate_radicands_applied": True,
+                }
+            if inner_product == bound:
+                tight_pairs += 1
+            if worst is None or inner_product > worst:
+                worst = inner_product
+                worst_pair = (left_index, right_index)
+
+    return {
+        "ok": True,
+        "count": count,
+        "dim": dimension,
+        "distinct": True,
+        "n_tight_pairs": tight_pairs,
+        "norm2": str(norm),
+        "max_offdiag_unnormalized": str(worst),
+        "max_offdiag_unit": str(worst / norm) if worst is not None else None,
+        "max_offdiag_pair": worst_pair,
+        "bound_unnormalized": str(bound),
+        "all_unit_after_scale": True,
+        "all_offdiag_leq_bound": True,
+        "coordinate_radicands_applied": True,
+        "coordinate_model": RADICAND_MODEL,
+    }
 
 
 def verify_unit_vectors(
     vectors: Sequence[Sequence[Any]],
     *,
     dim: int | None = None,
-    max_inner: Any = HALF,
+    max_inner: Any = _impl.HALF,
+    coordinate_radicands: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
-    """Verify a spherical code of unit vectors with max inner product <= max_inner."""
-    pts = [parse_vector(v) for v in vectors]
-    n = len(pts)
-    if n == 0:
-        raise ValueError("empty configuration")
-    d = len(pts[0])
-    if dim is not None and d != dim:
-        raise ValueError(f"expected dimension {dim}, got {d}")
-    if any(len(v) != d for v in pts):
-        raise ValueError("ragged vectors")
-
-    bound = parse_coord(max_inner)
-    diag_ok = True
-    off_ok = True
-    max_off = None
-    n_tight = 0
-    n_equal = 0
-    distinct = True
-
-    for i, v in enumerate(pts):
-        n2 = sp.simplify(sp.expand(norm2(v) - 1))
-        if n2 != 0:
-            diag_ok = False
-            return {
-                "ok": False,
-                "reason": f"vector {i} has norm^2 = {sp.simplify(norm2(v))} != 1",
-                "count": n,
-                "dim": d,
-            }
-
-    seen: dict[tuple, int] = {}
-    for i, v in enumerate(pts):
-        key = tuple(sp.expand(c) for c in v)
-        if key in seen:
-            distinct = False
-            n_equal += 1
-        else:
-            seen[key] = i
-
-    worst = None
-    worst_pair = None
-    for i in range(n):
-        for j in range(i + 1, n):
-            ip = sp.simplify(sp.expand(inner(pts[i], pts[j])))
-            gap = sp.simplify(sp.expand(bound - ip))
-            if gap == 0:
-                n_tight += 1
-            elif not _nonneg(gap):
-                off_ok = False
-                return {
-                    "ok": False,
-                    "reason": f"inner product vectors {i},{j} = {ip} > {bound}",
-                    "count": n,
-                    "dim": d,
-                    "violating_inner": str(ip),
-                }
-            if worst is None or _strict_gt(ip, worst):
-                worst = ip
-                worst_pair = (i, j)
-
-    ok = diag_ok and off_ok and distinct
-    return {
-        "ok": ok,
-        "count": n,
-        "dim": d,
-        "distinct": distinct,
-        "n_duplicate_pairs": n_equal,
-        "n_tight_pairs": n_tight,
-        "max_offdiag": str(worst) if worst is not None else None,
-        "max_offdiag_pair": worst_pair,
-        "bound": str(bound),
-        "all_unit": diag_ok,
-        "all_offdiag_leq_bound": off_ok,
-    }
-
-
-def _nonneg(expr: sp.Expr) -> bool:
-    expr = sp.simplify(sp.expand(expr))
-    if expr == 0:
-        return True
-    if expr.is_rational:
-        return expr >= 0
-    try:
-        if bool(sp.ask(sp.Q.nonnegative(expr))):
-            return True
-        if bool(sp.ask(sp.Q.negative(expr))):
-            return False
-    except Exception:
-        pass
-    try:
-        return sp.AlgebraicNumber(expr) >= 0
-    except Exception:
-        pass
-    # Quadratic a + b*sqrt(k): decide by casework.
-    decided = _nonneg_quadratic(expr)
-    if decided is not None:
-        return decided
-    raise ValueError(f"cannot decide nonnegativity of {expr} in exact arithmetic")
-
-
-def _strict_gt(a: sp.Expr, b: sp.Expr) -> bool:
-    return not _nonneg(sp.simplify(sp.expand(b - a)))
-
-
-def _nonneg_quadratic(expr: sp.Expr) -> bool | None:
-    """Decide a + b*sqrt(k) >= 0 for squarefree k > 0, a,b rational."""
-    expr = sp.expand(expr)
-    sqrts = list(expr.atoms(sp.Pow, sp.sqrt))
-    radicals = []
-    for s in expr.atoms(sp.Pow):
-        if s.exp == sp.Rational(1, 2):
-            radicals.append(s)
-    radicals += [z for z in expr.atoms(sp.sqrt)]
-    radicals = list({sp.powsimp(r) for r in radicals})
-    if len(radicals) != 1:
-        return None
-    r = radicals[0]
-    k = sp.simplify(r**2)
-    if not k.is_rational or k <= 0:
-        return None
-    a = sp.simplify(expr.subs(r, 0))
-    b = sp.simplify((expr - a) / r)
-    if not a.is_rational or not b.is_rational:
-        return None
-    # a + b sqrt(k) >= 0
-    if b == 0:
-        return a >= 0
-    if b > 0:
-        if a >= 0:
-            return True
-        return a * a <= b * b * k
-    # b < 0
-    if a < 0:
-        return False
-    return a * a >= b * b * k
+    if coordinate_radicands is None:
+        result = _impl.verify_unit_vectors(vectors, dim=dim, max_inner=max_inner)
+        result["coordinate_radicands_applied"] = False
+        return result
+    return _verify_weighted_unit(
+        vectors,
+        coordinate_radicands,
+        dim=dim,
+        max_inner=max_inner,
+    )
 
 
 def verify_equal_norm(
     vectors: Sequence[Sequence[Any]],
     *,
     dim: int | None = None,
+    coordinate_radicands: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
-    """Equal-norm kissing: 2 <vi,vj> <= ||vi||^2 for i!=j, all norms equal, distinct.
-
-    Equivalent to unit inner products <= 1/2 after scaling.
-    """
-    pts = [parse_vector(v) for v in vectors]
-    n = len(pts)
-    d = len(pts[0])
-    if dim is not None and d != dim:
-        raise ValueError(f"expected dimension {dim}, got {d}")
-    n2s = [sp.simplify(sp.expand(norm2(v))) for v in pts]
-    n0 = n2s[0]
-    if n0 == 0:
-        return {"ok": False, "reason": "zero vector", "count": n, "dim": d}
-    for i, n2 in enumerate(n2s):
-        if sp.simplify(n2 - n0) != 0:
-            return {
-                "ok": False,
-                "reason": f"unequal norms: ||v0||^2={n0}, ||v{i}||^2={n2}",
-                "count": n,
-                "dim": d,
-            }
-
-    seen: dict[tuple, int] = {}
-    for i, v in enumerate(pts):
-        key = tuple(sp.expand(c) for c in v)
-        if key in seen:
-            return {
-                "ok": False,
-                "reason": f"duplicate vectors {seen[key]} and {i}",
-                "count": n,
-                "dim": d,
-            }
-        seen[key] = i
-
-    n_tight = 0
-    worst = None
-    worst_pair = None
-    half_n0 = sp.simplify(n0 / 2)
-    for i in range(n):
-        for j in range(i + 1, n):
-            ip = sp.simplify(sp.expand(inner(pts[i], pts[j])))
-            gap = sp.simplify(sp.expand(half_n0 - ip))
-            if gap == 0:
-                n_tight += 1
-            elif not _nonneg(gap):
-                return {
-                    "ok": False,
-                    "reason": (
-                        f"inner product vectors {i},{j} = {ip} > half-norm {half_n0}"
-                    ),
-                    "count": n,
-                    "dim": d,
-                    "violating_inner": str(ip),
-                    "norm2": str(n0),
-                }
-            if worst is None or _strict_gt(ip, worst):
-                worst = ip
-                worst_pair = (i, j)
-
-    unit_max = sp.simplify(worst / n0) if worst is not None else None
-    return {
-        "ok": True,
-        "count": n,
-        "dim": d,
-        "distinct": True,
-        "n_tight_pairs": n_tight,
-        "norm2": str(n0),
-        "max_offdiag_unnormalized": str(worst),
-        "max_offdiag_unit": str(unit_max),
-        "max_offdiag_pair": worst_pair,
-        "bound_unnormalized": str(half_n0),
-        "all_unit_after_scale": True,
-        "all_offdiag_leq_bound": True,
-    }
-
-
-def to_unit_strings(vectors: Sequence[Sequence[Any]]) -> list[list[str]]:
-    pts = [parse_vector(v) for v in vectors]
-    n0 = sp.simplify(norm2(pts[0]))
-    scale = sp.sqrt(n0)
-    out = []
-    for v in pts:
-        out.append([str(sp.simplify(c / scale)) for c in v])
-    return out
-
-
-def load_config(path: str) -> dict[str, Any]:
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    if coordinate_radicands is None:
+        result = _impl.verify_equal_norm(vectors, dim=dim)
+        result["coordinate_radicands_applied"] = False
+        return result
+    return _verify_weighted_equal_norm(vectors, coordinate_radicands, dim=dim)
 
 
 def verify_config_file(path: str) -> dict[str, Any]:
-    cfg = load_config(path)
-    vecs = cfg["vectors"]
-    dim = cfg.get("dimension")
-    if cfg.get("unit"):
-        result = verify_unit_vectors(vecs, dim=dim)
+    config = _impl.load_config(path)
+    if "vectors" not in config:
+        raise ValueError("configuration is missing 'vectors'")
+    vectors = config["vectors"]
+    if "count" in config and config["count"] != len(vectors):
+        return {
+            "ok": False,
+            "reason": (
+                f"declared count {config['count']} does not match {len(vectors)} vectors"
+            ),
+            "count": len(vectors),
+            "dim": config.get("dimension"),
+            "path": path,
+            "method": config.get("method"),
+        }
+
+    radicands = config.get("coordinate_radicands")
+    if radicands is not None:
+        model = config.get("coordinate_model")
+        if model not in (None, RADICAND_MODEL):
+            raise ValueError(f"unsupported coordinate_model for radicands: {model!r}")
+    if config.get("unit"):
+        result = verify_unit_vectors(
+            vectors,
+            dim=config.get("dimension"),
+            coordinate_radicands=radicands,
+        )
     else:
-        result = verify_equal_norm(vecs, dim=dim)
+        result = verify_equal_norm(
+            vectors,
+            dim=config.get("dimension"),
+            coordinate_radicands=radicands,
+        )
     result["path"] = path
-    result["method"] = cfg.get("method")
+    result["method"] = config.get("method")
     return result
 
 
 def main(argv: Iterable[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Exact kissing-number verifier")
-    p.add_argument("config", help="JSON configuration with exact coordinates")
-    args = p.parse_args(list(argv) if argv is not None else None)
-    result = verify_config_file(args.config)
+    parser = argparse.ArgumentParser(description="Exact kissing-number verifier")
+    parser.add_argument("config", help="JSON configuration with exact coordinates")
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    try:
+        result = verify_config_file(args.config)
+    except Exception as exc:
+        result = {
+            "ok": False,
+            "path": args.config,
+            "error_type": type(exc).__name__,
+            "reason": str(exc),
+        }
     print(json.dumps(result, indent=2, default=str))
-    if not result.get("ok"):
-        return 1
-    return 0
+    return 0 if result.get("ok") else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

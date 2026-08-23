@@ -1,59 +1,55 @@
-name: ZE99 auxiliary bound-2 exact search
+name: ZE99 auxiliary bound-2 smoke validation
 
 on:
   pull_request:
     branches:
       - main
+    paths:
+      - .github/workflows/ze99-aux-b2-exact.yml
+      - kissing/dim13/search_ze99_aux_b2.py
+      - kissing/dim13/ze99_aux_bounded.py
+      - kissing/dim13/ze99_aux_core.py
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: ze99-aux-b2-exact
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
-  search:
-    if: ${{ github.actor != 'github-actions[bot]' }}
+  smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 12
     steps:
-      - name: Check out research branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: codex/d13-packingstar-exact
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install exact-search dependencies
-        run: python -m pip install --upgrade numpy sympy
-
-      - name: Exhaust primitive coordinate magnitudes up to two
+      - run: >-
+          python -m pip install --disable-pip-version-check
+          numpy==2.2.6 sympy==1.14.0
+      - name: Exercise the bound-2 exact search without mutating the branch
         run: |
-          set -euxo pipefail
-          rm -rf kissing/dim13/ze99_aux_b2_results
-          mkdir -p kissing/dim13/ze99_aux_b2_results
+          set -euo pipefail
           python kissing/dim13/search_ze99_aux_b2.py \
-            --output-dir kissing/dim13/ze99_aux_b2_results \
-            --time-limit 1500 \
-            --progress-log kissing/dim13/ze99_aux_b2_progress.log \
-            2>&1 | tee kissing/dim13/ze99_aux_b2_results/ci_run.log
-
-      - name: Commit exact outputs
+            --output-dir /tmp/ze99_aux_b2_results \
+            --time-limit 60 \
+            --progress-log /tmp/ze99_aux_b2_progress.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-aux-b2-smoke-${{ github.sha }}
+          if-no-files-found: warn
+          path: /tmp/ze99_aux_b2_results
+      - name: Prove validation was read-only
         run: |
-          set -euxo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add kissing/dim13/ze99_aux_b2_results kissing/dim13/ze99_aux_b2_progress.log
-          if git diff --cached --quiet; then
-            echo 'No generated changes.'
-            exit 0
-          fi
-          git commit -m 'Search primitive ZE99 auxiliary directions through magnitude two [skip ze99 b2]'
-          git pull --rebase origin codex/d13-packingstar-exact
-          git push origin HEAD:codex/d13-packingstar-exact
+          git diff --exit-code
+          test -z "$(git status --porcelain)"

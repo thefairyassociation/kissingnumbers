@@ -1,1 +1,0 @@
-2026-08-23T06:47:43.748023+00:00 method='exact saturated E6/E7 fiber partition orbit classification' dimension=13 count=1146 result=fail_record exact=true e7_partitions=960 e7_orbits=1 e7_flag_orbits=1 e6_partitions=17920 e6_orbits=13 reason='classification narrows product-core freedom but adds no vectors'
