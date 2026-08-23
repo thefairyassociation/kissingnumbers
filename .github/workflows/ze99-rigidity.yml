@@ -1,0 +1,252 @@
+name: ZE99 exact finite-field rigidity
+
+on:
+  push:
+    branches:
+      - codex/d13-packingstar-exact
+    paths:
+      - kissing/dim13/rigidity/generate_ze99_rigidity.py
+      - .github/workflows/ze99-rigidity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ze99-exact-rigidity
+  cancel-in-progress: false
+
+jobs:
+  rigidity:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/d13-packingstar-exact
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build SpaSM at a pinned revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config fflas-ffpack libopenblas-dev
+          git clone https://github.com/cbouilla/spasm.git /tmp/spasm
+          git -C /tmp/spasm checkout 09c40943f1d4b754f89fb97fc9ddf2b8e53e967e
+          make -C /tmp/spasm -j2
+          /tmp/spasm/build/tools/rank --version || true
+
+      - name: Generate exact reduced rigidity matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/ze99-rigidity kissing/dim13/rigidity/results
+          mkdir -p /tmp/ze99-rigidity kissing/dim13/rigidity/results
+          python kissing/dim13/rigidity/generate_ze99_rigidity.py \
+            --prime 11 --sqrt3-root 5 \
+            --output-matrix /tmp/ze99-rigidity/ze99_p11.mtx \
+            --output-json kissing/dim13/rigidity/results/matrix_p11.json \
+            | tee kissing/dim13/rigidity/results/generator_p11.log
+          python kissing/dim13/rigidity/generate_ze99_rigidity.py \
+            --prime 13 --sqrt3-root 4 \
+            --output-matrix /tmp/ze99-rigidity/ze99_p13.mtx \
+            --output-json kissing/dim13/rigidity/results/matrix_p13.json \
+            | tee kissing/dim13/rigidity/results/generator_p13.log
+          sha256sum /tmp/ze99-rigidity/*.mtx \
+            | tee kissing/dim13/rigidity/results/matrix_sha256.txt
+
+      - name: Compute certified rank over F_11
+        shell: bash
+        env:
+          OMP_NUM_THREADS: '2'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /tmp/spasm/build/tools/rank \
+            --modulus 11 \
+            --matrix /tmp/ze99-rigidity/ze99_p11.mtx \
+            --certificate \
+            --output /tmp/ze99-rigidity/rank_p11.certificate \
+            2>&1 | tee kissing/dim13/rigidity/results/rank_p11.log
+          gzip -9 /tmp/ze99-rigidity/rank_p11.certificate
+          sha256sum /tmp/ze99-rigidity/rank_p11.certificate.gz \
+            | tee kissing/dim13/rigidity/results/certificate_sha256.txt
+
+      - name: Cross-check rank over F_13
+        shell: bash
+        env:
+          OMP_NUM_THREADS: '2'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /tmp/spasm/build/tools/rank \
+            --modulus 13 \
+            --matrix /tmp/ze99-rigidity/ze99_p13.mtx \
+            2>&1 | tee kissing/dim13/rigidity/results/rank_p13.log
+
+      - name: Summarize exact rigidity result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import re
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          out = Path('kissing/dim13/rigidity/results')
+          expected = 14924
+          entries = []
+          for prime in (11, 13):
+              metadata = json.loads((out / f'matrix_p{prime}.json').read_text())
+              log = (out / f'rank_p{prime}.log').read_text()
+              matches = re.findall(r'rank\s*=\s*(\d+)', log)
+              if not matches:
+                  raise SystemExit(f'No rank found in F_{prime} log')
+              rank = int(matches[-1])
+              if rank > expected:
+                  raise SystemExit(f'Impossible rank {rank} > {expected}')
+              entries.append({
+                  'prime': prime,
+                  'sqrt3_root': metadata['finite_field_matrix']['sqrt3_root'],
+                  'rank': rank,
+                  'expected_rigid_rank': expected,
+                  'full_equality_framework_rank': rank == expected,
+                  'matrix_sha256': metadata['finite_field_matrix']['matrix_market_sha256'],
+                  'rows': metadata['finite_field_matrix']['rows'],
+                  'columns': metadata['finite_field_matrix']['columns'],
+                  'nonzeros': metadata['finite_field_matrix']['nonzeros'],
+                  'contact_rows': metadata['finite_field_matrix']['contact_rows'],
+              })
+          cert_log = (out / 'rank_p11.log').read_text()
+          certificate_verified = 'CORRECT certificate' in cert_log
+          rigidity_proved = any(row['rank'] == expected for row in entries)
+          result = {
+              'generated_at': datetime.now(timezone.utc).isoformat(),
+              'status': 'completed',
+              'construction': 'Zinoviev-Ericson 1999 exact 1154-point reproduction',
+              'dimension': 13,
+              'count': 1154,
+              'live_record': 1154,
+              'beats_record': False,
+              'equality_contact_framework_infinitesimally_rigid': rigidity_proved,
+              'characteristic_zero_rank': expected if rigidity_proved else None,
+              'rotational_kernel_dimension': 78,
+              'finite_field_checks': entries,
+              'F11_rank_certificate_self_verified': certificate_verified,
+              'exactness': (
+                  'All matrix entries are exact reductions of Z[sqrt(3)] coordinates. '
+                  'A full-rank finite-field minor proves the matching characteristic-zero '
+                  'rank; infinitesimal rotations give the upper bound.'
+              ),
+              'scope_warning': (
+                  'Equality-framework rigidity rules out a non-rotational infinitesimal '
+                  'motion preserving every active contact as an equality. It does not by '
+                  'itself prove tensegrity jamming, because feasible motions may open contacts.'
+              ),
+              'new_record': False,
+          }
+          (out / 'RESULT.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          lines = [
+              '# Exact finite-field rigidity of the ZE99 contact framework',
+              '',
+              f"- Configuration: exact ZE99 reproduction, **1154** points in dimension 13.",
+              f"- Active contact rows: **{entries[0]['contact_rows']}**.",
+              f"- Rigidity-matrix columns: **{entries[0]['columns']}**.",
+              f"- Rotational kernel dimension: **78**; maximal possible rank: **{expected}**.",
+              '',
+              '| field embedding | exact rank | maximal |',
+              '| --- | ---: | :---: |',
+          ]
+          for row in entries:
+              lines.append(
+                  f"| `F_{row['prime']}`, `sqrt(3)={row['sqrt3_root']}` | "
+                  f"{row['rank']} | {'yes' if row['rank'] == expected else 'no'} |"
+              )
+          lines += [
+              '',
+              f"SpaSM's F_11 rank certificate self-check: **{'passed' if certificate_verified else 'not observed'}**.",
+              '',
+          ]
+          if rigidity_proved:
+              lines += [
+                  '## Exact conclusion',
+                  '',
+                  'The equality contact framework is infinitesimally rigid over `Q(sqrt(3))`: '
+                  'its rigidity matrix has exact rank 14,924, leaving only the 78-dimensional '
+                  'space of ambient rotations.',
+                  '',
+              ]
+          else:
+              lines += [
+                  '## Conclusion',
+                  '',
+                  'No full-rank finite-field minor was found in these two embeddings. This does '
+                  'not prove a characteristic-zero flex, because rank can drop at exceptional primes.',
+                  '',
+              ]
+          lines += [
+              'This is a structural negative result, not a new kissing bound. Equality-framework '
+              'rigidity does not alone prove one-sided tensegrity jamming; a motion that opens '
+              'contacts is not excluded by this rank computation.',
+              '',
+              'Raw generator and rank output are committed beside this report. The compressed '
+              'SpaSM certificate is attached to the workflow artifact.',
+              '',
+          ]
+          (out / 'REPORT.md').write_text('\n'.join(lines))
+          stamp = result['generated_at']
+          (out / 'progress.log').write_text(
+              f"{stamp} method='exact finite-field ZE99 equality-rigidity rank' "
+              f"dimension=13 count=1154 result=fail_record exact=true "
+              f"rank_F11={entries[0]['rank']} rank_F13={entries[1]['rank']} "
+              f"rigid={str(rigidity_proved).lower()}\n"
+          )
+          print(json.dumps(result, indent=2, sort_keys=True))
+          if rigidity_proved and not certificate_verified:
+              raise SystemExit('Full rank reported but F_11 certificate did not self-verify')
+          PY
+
+      - name: Upload matrices and rank certificate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-exact-rigidity-artifacts
+          if-no-files-found: warn
+          compression-level: 9
+          path: |
+            /tmp/ze99-rigidity/*.mtx
+            /tmp/ze99-rigidity/*.certificate.gz
+            kissing/dim13/rigidity/results
+
+      - name: Commit completed rigidity result
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add kissing/dim13/rigidity/results
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Record exact ZE99 finite-field rigidity rank [skip ci]'
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin codex/d13-packingstar-exact
+            if git push origin HEAD:codex/d13-packingstar-exact; then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
