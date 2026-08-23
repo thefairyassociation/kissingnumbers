@@ -1,0 +1,58 @@
+{
+  "arithmetic": "integer only; every root has exact squared norm 8",
+  "e6": {
+    "branch_and_bound_nodes": 3056,
+    "classification": "three mutually orthogonal equilateral triangles (Y3)",
+    "maximum_nonpositive_subset": 9,
+    "maximum_subset_count": 320,
+    "root_count": 72,
+    "sha256": "419e3970f8ace54d926cc9067a0b1aa41dee11f4673779d0c8d8d577d80701f9",
+    "witness_indices": [66, 63, 55, 50, 32, 30, 12, 9, 4],
+    "witness_vectors_scaled": [
+      [1, 1, 1, -1, -1, -1, 1, -1],
+      [1, 1, -1, 1, -1, -1, -1, 1],
+      [1, -1, 1, -1, 1, -1, -1, 1],
+      [1, -1, -1, 1, -1, 1, 1, -1],
+      [0, 0, 0, -2, 0, 2, 0, 0],
+      [0, 0, -2, 0, 2, 0, 0, 0],
+      [-1, -1, 1, 1, 1, -1, 1, -1],
+      [-1, -1, 1, 1, -1, 1, -1, 1],
+      [-2, 2, 0, 0, 0, 0, 0, 0]
+    ]
+  },
+  "e7": {
+    "branch_and_bound_nodes": 6131,
+    "classification": "seven antipodal pairs on seven mutually orthogonal lines (X7)",
+    "maximum_nonpositive_subset": 14,
+    "maximum_subset_count": 135,
+    "root_count": 126,
+    "sha256": "73b3a9d7deb17e8490f805d2f226171134d9e88cc574113606dffdf32e9a23c1",
+    "witness_indices": [116, 111, 107, 89, 94, 103, 87, 38, 36, 31, 22, 18, 14, 9],
+    "witness_vectors_scaled": [
+      [1, 1, 1, -1, -1, 1, -1, -1],
+      [1, 1, -1, 1, -1, -1, 1, -1],
+      [1, 1, -1, -1, 1, -1, -1, 1],
+      [1, -1, -1, 1, -1, 1, -1, 1],
+      [1, -1, 1, -1, -1, -1, 1, 1],
+      [1, -1, 1, 1, 1, -1, -1, -1],
+      [1, -1, -1, -1, 1, 1, 1, -1],
+      [-1, 1, 1, 1, -1, -1, -1, 1],
+      [-1, 1, 1, -1, 1, -1, 1, -1],
+      [-1, 1, -1, 1, 1, 1, -1, -1],
+      [-1, 1, -1, -1, -1, 1, 1, 1],
+      [-1, -1, 1, 1, -1, 1, 1, -1],
+      [-1, -1, 1, -1, 1, 1, -1, 1],
+      [-1, -1, -1, 1, 1, -1, 1, 1]
+    ]
+  },
+  "exact": true,
+  "fiber_core_consequence": {
+    "maximum_e7_roots_that_can_be_omitted": 14,
+    "maximum_edges": 1008,
+    "minimum_distinct_e7_roots_if_1008_edges": 112,
+    "packingstar_variant_attains_both_equalities": true,
+    "proof": "72 E6 roots, each with at most 14 E7 neighbors",
+    "proof_of_support": "each E7 root has at most 9 E6 neighbors"
+  },
+  "generated_at": "2026-08-23T06:03:37.913160+00:00"
+}
