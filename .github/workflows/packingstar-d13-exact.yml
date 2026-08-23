@@ -1,9 +1,6 @@
 name: PackingStar d13 exact reconstruction
 
 on:
-  push:
-    branches:
-      - codex/d13-packingstar-exact
   pull_request:
     branches:
       - main
@@ -13,12 +10,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: packingstar-d13-exact-${{ github.ref }}
+  group: packingstar-d13-exact
   cancel-in-progress: false
 
 jobs:
   analyze:
-    if: ${{ !contains(github.event.head_commit.message || '', '[skip d13 packingstar]') }}
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
@@ -58,6 +55,14 @@ jobs:
             --output-dir kissing/dim13/packingstar/results \
             --progress-log kissing/dim13/progress.log 2>&1 | tee kissing/dim13/packingstar/results/raw_run.log
 
+      - name: Decode the exact E6/E7 fiber product and search structured cap candidates
+        run: |
+          set -euxo pipefail
+          python kissing/dim13/packingstar/analyze_fiber.py \
+            --matrix /tmp/packingstar/13D_rational_configurations/13D-1146-cosmatrix.npy \
+            --output-dir kissing/dim13/packingstar/results \
+            --expensive 2>&1 | tee kissing/dim13/packingstar/results/fiber_raw_run.log
+
       - name: Commit reproducible outputs
         run: |
           set -euxo pipefail
@@ -68,5 +73,6 @@ jobs:
             echo 'No generated changes.'
             exit 0
           fi
-          git commit -m 'Analyze PackingStar dimension-13 rational configurations [skip d13 packingstar]'
+          git commit -m 'Analyze PackingStar dimension-13 fiber construction [skip d13 packingstar]'
+          git pull --rebase origin codex/d13-packingstar-exact
           git push origin HEAD:codex/d13-packingstar-exact
