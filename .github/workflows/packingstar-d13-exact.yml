@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - codex/d13-packingstar-exact
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
