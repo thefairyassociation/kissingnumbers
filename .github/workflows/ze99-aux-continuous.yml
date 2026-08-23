@@ -4,21 +4,25 @@ on:
   push:
     branches:
       - codex/d13-packingstar-exact
+      - codex/d13-steiner-switch-record
     paths:
       - .github/workflows/ze99-aux-continuous.yml
       - kissing/dim13/search_ze99_aux_continuous.py
+      - kissing/dim13/search_ze99_steiner_switch.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: ze99-aux-continuous
+  group: ze99-aux-continuous-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   search:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && github.ref == 'refs/heads/codex/d13-packingstar-exact'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -80,3 +84,102 @@ jobs:
           git commit -m 'Record continuous ZE99 auxiliary-layer search [skip ci]'
           git pull --rebase origin codex/d13-packingstar-exact
           git push origin HEAD:codex/d13-packingstar-exact
+
+  exact-steiner-switch:
+    if: github.actor != 'github-actions[bot]' && github.ref == 'refs/heads/codex/d13-steiner-switch-record'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Steiner-switch branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/d13-steiner-switch-record
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact-search dependency
+        run: python -m pip install --disable-pip-version-check numpy
+
+      - name: Exhaust integer shell and verify any witness exactly
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf kissing/dim13/ze99_steiner_switch_results
+          python kissing/dim13/search_ze99_steiner_switch.py \
+            --output-dir kissing/dim13/ze99_steiner_switch_results \
+            --progress-log kissing/dim13/ze99_steiner_switch_progress.log \
+            --near-misses 30 \
+            | tee kissing/dim13/ze99_steiner_switch_results/raw_run.log
+
+      - name: Validate exact output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("kissing/dim13/ze99_steiner_switch_results")
+          analysis = json.loads((root / "analysis.json").read_text())
+          assert analysis["status"] == "completed"
+          assert analysis["integer_shell_reduction"]["exact_family_exhaustive"] is True
+          assert analysis["integer_shell_reduction"]["integer_candidate_shell_size"] == 8192
+          assert analysis["search"]["tested"] == 8192 or analysis["beats_record"]
+          if analysis["beats_record"]:
+              assert analysis["candidate_count"] == 1155
+              assert analysis["witness"]["exact_verification"]["ok"] is True
+              assert (root / "best_exact_1155.json").is_file()
+              assert (root / "best.json").is_file()
+          else:
+              assert analysis["candidate_count"] == 1154
+          PY
+
+      - name: Promote an exact record witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          root = Path("kissing/dim13/ze99_steiner_switch_results")
+          analysis = json.loads((root / "analysis.json").read_text())
+          if analysis["beats_record"]:
+              shutil.copyfile(root / "best.json", Path("kissing/dim13/best.json"))
+              print("promoted exact 1155-vector witness")
+          else:
+              print("integer switch family exhausted without a record")
+          PY
+
+      - name: Upload exact search outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ze99-steiner-switch-record
+          if-no-files-found: warn
+          path: |
+            kissing/dim13/ze99_steiner_switch_results
+            kissing/dim13/ze99_steiner_switch_progress.log
+
+      - name: Commit exact search output
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add kissing/dim13/ze99_steiner_switch_results \
+                  kissing/dim13/ze99_steiner_switch_progress.log \
+                  kissing/dim13/best.json
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Record exact ZE99 Steiner-switch search [skip ci]'
+          git pull --rebase origin codex/d13-steiner-switch-record
+          git push origin HEAD:codex/d13-steiner-switch-record
