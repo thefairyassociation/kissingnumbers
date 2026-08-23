@@ -1,6 +1,6 @@
 # Exact fiber-product analysis of PackingStar's 1146 in dimension 13
 
-Generated `2026-08-23T06:14:09.633839+00:00`.
+Generated `2026-08-23T06:37:14.094379+00:00`.
 
 ## Exact result
 

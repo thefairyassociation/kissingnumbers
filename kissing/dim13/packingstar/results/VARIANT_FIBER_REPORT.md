@@ -1,6 +1,6 @@
 # Exact analysis of PackingStar's non-antipodal 1146 variant
 
-Generated `2026-08-23T06:14:19.384845+00:00`.
+Generated `2026-08-23T06:37:23.924635+00:00`.
 
 ## Exact decomposition
 

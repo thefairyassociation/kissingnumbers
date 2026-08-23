@@ -1,6 +1,6 @@
 # PackingStar dimension-13 exact reconstruction
 
-Generated 2026-08-23T06:14:07.856357+00:00 from `/tmp/packingstar`.
+Generated 2026-08-23T06:37:12.322638+00:00 from `/tmp/packingstar`.
 
 This independently reconstructs exact rational Gram matrices from the public
 PackingStar `.npy` files. A successful row proves symmetry, unit diagonal,
