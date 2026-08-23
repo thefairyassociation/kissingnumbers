@@ -70,7 +70,7 @@
   },
   "fixed_base_count": 1106,
   "full_count": 1154,
-  "generated_at": "2026-08-23T06:37:25.079831+00:00",
+  "generated_at": "2026-08-23T06:37:47.633573+00:00",
   "method": "primitive q/||q|| with q in {-2,-1,0,1,2}^12",
   "record": 1154,
   "search": {
