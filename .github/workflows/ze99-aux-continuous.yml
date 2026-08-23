@@ -183,3 +183,5 @@ jobs:
           git commit -m 'Record exact ZE99 Steiner-switch search [skip ci]'
           git pull --rebase origin codex/d13-steiner-switch-record
           git push origin HEAD:codex/d13-steiner-switch-record
+
+# Exact Steiner-switch audit retriggered on 2026-08-23.
