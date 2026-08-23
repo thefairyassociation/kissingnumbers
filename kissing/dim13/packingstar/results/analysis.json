@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-23T05:17:52.068660+00:00",
+  "generated_at": "2026-08-23T05:19:58.005579+00:00",
   "live_record_dimension_13": 1154,
   "records": [
     {
@@ -29,7 +29,7 @@
       "hole_search": {
         "available": true,
         "best_iterations": 2,
-        "best_polytope_norm": 0.9354143466934854,
+        "best_polytope_norm": 0.9354143466934856,
         "coordinate_norm_error": 4.440892098500626e-16,
         "normalized_candidate_conflict_indices": [
           32,
