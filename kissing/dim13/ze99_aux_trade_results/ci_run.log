@@ -10,7 +10,7 @@
   },
   "dimension": 13,
   "exact_result": false,
-  "generated_at": "2026-08-23T07:02:55.360831+00:00",
+  "generated_at": "2026-08-23T07:04:01.354670+00:00",
   "method": "random LP vertex sampling for one-axis-to-two-point trades",
   "results": [
     {
