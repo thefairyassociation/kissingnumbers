@@ -10,13 +10,22 @@ on:
       - kissing/dim13/ze99_aux_core.py
       - kissing/dim13/constructions/ze99.py
       - kissing/dim13/data/ze99_structure.json
+  pull_request:
+    branches:
+      - codex/d13-packingstar-exact
+    paths:
+      - .github/workflows/ze99-aux-25-matrix.yml
+      - kissing/dim13/search_ze99_aux_continuous.py
+      - kissing/dim13/ze99_aux_core.py
+      - kissing/dim13/constructions/ze99.py
+      - kissing/dim13/data/ze99_structure.json
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ze99-aux-25-matrix-${{ github.ref }}
+  group: ze99-aux-25-matrix-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
