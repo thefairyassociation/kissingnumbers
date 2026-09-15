@@ -1,0 +1,27 @@
+{
+  "arithmetic": {
+    "comparison": "exact Python integers only",
+    "coordinates": "finite decimal strings -> Decimal -> Fraction; no float intermediate",
+    "directions": "clear each row denominator, then divide by the integer gcd",
+    "max_direction_coordinate_bits": 73,
+    "max_norm_bits": 147,
+    "normalization": "v_i / sqrt(q_i), q_i = v_i dot v_i > 0",
+    "pair_test": "p <= 0, or 4*p^2 <= q_i*q_j for p > 0",
+    "strict_pair_test": "p <= 0, or 4*p^2 < q_i*q_j for p > 0 when strict=true"
+  },
+  "checked_pairs": 353220,
+  "dimension": 12,
+  "expected_count": 841,
+  "expected_dimension": 12,
+  "label": "KNOWN published witness reproduction",
+  "nonpositive_pairs": 177081,
+  "ok": true,
+  "pair_count": 353220,
+  "positive_pairs": 176139,
+  "source": "kissing/lib/testdata/authors_841_coordinates.txt",
+  "source_count": 841,
+  "source_sha256": "883943a52b35fbb314417a61050507f8ad7ee2c3466ef4ea70441837114c8ab0",
+  "status": "CERTIFIED",
+  "strict": true,
+  "tight_pairs": 0
+}
