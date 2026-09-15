@@ -1,0 +1,168 @@
+{
+  "plan": {
+    "seed": 51,
+    "batch": 1,
+    "steps": 35000,
+    "threads": 1,
+    "core_sha256": "390b27b4d95220304ffe77f8a476e2c84e299fc56e2fb09b7081db7fc7bde0a9",
+    "pinned_extra_index": 3254,
+    "initial_sha256": "e3e38fb58de4e7e3002fe940d92778dd64f57b8afaa53fd2012b37d9aebca33b",
+    "timeout_seconds_per_engine": 1200,
+    "concurrent_calibration_jobs": 2,
+    "schedule": [
+      [
+        8.0,
+        1000,
+        0.005
+      ],
+      [
+        16.0,
+        1000,
+        0.003
+      ],
+      [
+        32.0,
+        1000,
+        0.002
+      ],
+      [
+        64.0,
+        2000,
+        0.001
+      ],
+      [
+        128.0,
+        2000,
+        0.0005
+      ],
+      [
+        256.0,
+        2000,
+        0.0002
+      ],
+      [
+        512.0,
+        2000,
+        0.0001
+      ],
+      [
+        1024.0,
+        4000,
+        5e-05
+      ],
+      [
+        2048.0,
+        4000,
+        1e-05
+      ],
+      [
+        4096.0,
+        4000,
+        1e-05
+      ],
+      [
+        10000.0,
+        4000,
+        5e-06
+      ],
+      [
+        20000.0,
+        4000,
+        1e-06
+      ],
+      [
+        40000.0,
+        4000,
+        1e-06
+      ]
+    ]
+  },
+  "results": [
+    {
+      "engine": "C",
+      "returncode": 0,
+      "wall_seconds": 373.6772949430001,
+      "timed_out": false,
+      "readback": {
+        "shape": [
+          841,
+          12
+        ],
+        "max_inner_product": 0.5342891714277646,
+        "max_pair": [
+          638,
+          820
+        ],
+        "max_norm_error": 3.3306690738754696e-16,
+        "strictly_below_half": false,
+        "sha256": "f90cf83c9f1e260f5221dfdb95cac63fbe4c11a34a6e66483202759b9a92f299"
+      },
+      "header": [
+        "# n=12 N=841 max_inner=0.53428917142776444",
+        "# solver=adam loss=riesz steps=35000 seed=51 polish=1",
+        "# faithful=1 raw_adam=1 jitter=0 search_stage_start=0 search_stage_end=13 search_updates=35000 full_schedule=1 extra_mode=pinned extra_index=3254 polish=0 polish_updates=0 gram_handoff=0"
+      ]
+    },
+    {
+      "engine": "Torch",
+      "returncode": 0,
+      "wall_seconds": 630.2204863240004,
+      "timed_out": false,
+      "readback": {
+        "shape": [
+          841,
+          12
+        ],
+        "max_inner_product": 0.5343313313187009,
+        "max_pair": [
+          141,
+          465
+        ],
+        "max_norm_error": 2.220446049250313e-16,
+        "strictly_below_half": false,
+        "sha256": "7e62419dc6ad257deb3c577616e7a92bab4362333f4832d81f849dc907386b28"
+      },
+      "metadata": {
+        "batch_metrics_at_last_completed_macro": [
+          {
+            "numpy_dimension": 12,
+            "numpy_finite": true,
+            "numpy_max_inner_product": 0.5343313313187009,
+            "numpy_max_norm_error": 2.220446049250313e-16,
+            "numpy_rows": 841
+          }
+        ],
+        "batch_size": 1,
+        "claim": "numeric search candidate only; not an exact certificate or a record claim",
+        "cursor": {
+          "in_stage": 0,
+          "macro": 1,
+          "stage": 0
+        },
+        "device": "cpu",
+        "diagnostic": false,
+        "dtype": "float64",
+        "extra": "one independent uniform hypercube row per candidate; 840 seed rows fixed",
+        "full_schedule": true,
+        "handoff": "For polish, use prepare_841_polish.py decimal Gram handoff first; this runner does not polish.",
+        "kind": "batched841_candidate",
+        "macro_repeats": 1,
+        "numpy_verification": {
+          "numpy_dimension": 12,
+          "numpy_finite": true,
+          "numpy_max_inner_product": 0.5343313313187009,
+          "numpy_max_norm_error": 2.220446049250313e-16,
+          "numpy_rows": 841
+        },
+        "requested_updates": 35000,
+        "schema_version": 1,
+        "seed": 51,
+        "seed_digest": "390b27b4d95220304ffe77f8a476e2c84e299fc56e2fb09b7081db7fc7bde0a9",
+        "seed_source": "/workspace/scratch/51409aef41a5/validation-calibration/initial.txt",
+        "status": "full",
+        "updates": 35000,
+        "written_readback": true
+      }
+    }
+  ]
+}
