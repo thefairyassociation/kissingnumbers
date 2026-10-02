@@ -213,3 +213,89 @@ through exponent 64. The deformation was worse in every pair:
 No pilot candidate was below `0.5`. Keep O(4) as an optional breadth arm, not a
 preferred initializer; `lib/O4_BREADTH.md` documents the implementation and
 the corrected comparison.
+
+## 2026-10-02: faster engine, basin fingerprints, branching
+
+**Pass criterion still not met.**  Best independently recomputed maximum for
+the fixed 841-point calibration: `0.500164723796735` straight from the search,
+and `0.5001013` after a local minimax polish of that candidate (the polish
+converges there: the bottom of that basin is above 1/2).  The previous best
+recorded here was `0.500477`; a rerun of the old engine in this session gave
+`0.500245`.
+
+### Engine
+
+`lib/fastriesz.c` evaluates the same loss as `riesz.c` (log of the Riesz
+s-energy on normalised rows, published exponent/LR schedule, raw or manifold
+Adam).  Power-of-two exponents are computed by repeated squaring of
+`r2min/r2`; for `s >= 256` a Verlet neighbour list holds every pair whose term
+is within `e^-40` of the largest, rebuilt whenever `2*max displacement +
+growth of the cutoff radius` exceeds the skin, so no contributing pair is ever
+dropped.  `test_fast_tools.py` checks loss and gradient against a NumPy
+reference at s = 8, 64, 1024 (both paths) and 40000 to `1e-10` relative;
+`--check K` compares list and full evaluations during a live run (observed
+`|dG|/|G| <= 2e-12` over a full schedule).  One full 35,000-step candidate
+takes 28 s on one core; the old engine's equivalent is roughly 470
+core-seconds.
+
+### What the protocols actually produce
+
+Fingerprints (`max`, fraction of pair inner products within `1e-2` of a
+canonical-840 value, pairs below `-0.99`):
+
+| configuration | max | canonical fraction | antipodal pairs |
+| --- | ---: | ---: | ---: |
+| canonical 840 core | 0.5 | 1.000 | 372 |
+| published 841 witness | 0.49999994 | 0.724 | 387 |
+| old-engine strong basin (seed 51, 3 threads) | 0.500245 | 0.721 | 388 |
+| best branch, minimax-polished | 0.500101 | 0.728 | 388 |
+| authors' schedule from `s=8`, exact core (24 runs) | 0.5312-0.5344 | 0.37 | 11-56 |
+| same schedule entered at `s=32` ("gentle") | 0.5042-0.5096 | 0.83 | 372 |
+
+* The authors' schedule run one candidate at a time on CPU **melts** the 840
+  core: 20 of 24 runs ended in `[0.53412, 0.53436]`, the best at `0.53116`.
+* Entering the same schedule at a higher exponent keeps the core intact but
+  **uniformly strained**: tens of thousands of contacts all sit at `0.5042`.
+  A hinge polish at `t = 1/2` then trades those small violations for a single
+  large one (`E = 0.0298`, max `0.5398`): a dead end.
+* The rare strong basin of the legacy protocol (manifold Adam, jitter 0.03,
+  120000-step scaled schedule) has **the same fingerprint as the published
+  witness**.  It is the right family; the problem is the member.
+* A fresh 48-seed screen of the legacy protocol with `fastriesz` (seeds 0..47)
+  found **no** strong basin (s=64 maxima `0.55016 .. 0.55789`), consistent
+  with the earlier 1-in-48 estimate.
+
+### Branching
+
+Seed 51's state after `s=16` (one thread, old engine) was re-run with
+`fastriesz --start-stage 2 --jit sigma` (fresh Adam moments).  Branches with
+`sigma` in `1e-3 .. 1e-2` stay in the strong family essentially always; the
+s=512 value already predicts the final one, so `branch_search.py` screens
+branches there against the running median.  Over the two runs (about 40
+finished branches) the finals fall on **discrete levels**, e.g.
+`0.500165-0.500188` (three hits), `0.500269`, `0.500354-0.500369`,
+`0.50119-0.50128`, `0.5014-0.5015`, `0.5018-0.5020`.  Branches from `s=64`
+states land next to their parents.  The best level of this root is above
+1/2.
+
+### Feasibility and basin bottoms
+
+`hingepol` (L-BFGS on `sum (g - t)_+^2`) decides feasibility: on the
+0.500245 basin it converges to `E = 8.98e-5 > 0` (same value as SciPy's
+L-BFGS), so that basin holds no configuration with max `<= 1/2`.
+`minimax_polish.py` (hinge continuation `t = max - delta`) gives basin
+bottoms: `0.500245 -> 0.500236`, `0.500165 -> 0.5001013`.
+
+A sequential-LP minimax polish was also tried and dropped: at N = 841 the
+linearised problem has about 15,000 nearly tight rows and HiGHS needed over
+100,000 dual-simplex pivots (and IPX stalled in its basis preconditioner) for
+a single step.
+
+### Certification
+
+`lib/certify_float.py` turns any float configuration with max cosine
+*strictly* below 1/2 into an exact proof (integer rounding at `2^40`, exact
+test `4<x,y>^2 <= (1-2d)^2 |x|^2 |y|^2`).  The published witness certifies with
+`d = 6e-8`; the certificate is `dim12/configs/takhanov841_certified.json`.
+So a numerical hit below 1/2 -- in any dimension -- is immediately provable;
+only tight configurations still need algebraic coordinates.
