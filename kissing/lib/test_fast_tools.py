@@ -62,6 +62,17 @@ def test_certify() -> None:
     Y[a] = U[a] + 0.02 * (U[b] - U[a])  # push a towards b: cosine > 1/2
     okb, _ = certify_float.certify(certify_float.to_integer(Y, 40))
     assert not okb, "a perturbed witness must be rejected"
+    # a spread-out configuration (max cosine well below 1/2) must never be
+    # credited with a margin of 1/2 or more
+    Q = np.vstack([np.eye(12), -np.eye(12)])
+    Vq = certify_float.to_integer(Q, 40)
+    okq, (wqq, _) = certify_float.certify(Vq)
+    assert okq and certify_float.proven_margin(wqq) < Fraction(1, 2)
+    try:
+        certify_float.certify(Vq, Fraction(1, 2))
+        raise AssertionError("margin 1/2 must be rejected")
+    except ValueError:
+        pass
     print("certify_float: PASS")
 
 

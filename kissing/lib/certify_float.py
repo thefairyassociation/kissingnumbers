@@ -66,6 +66,8 @@ def certify(V: list[list[int]], margin: Fraction = Fraction(0)):
     """Return (ok, worst) where worst is the pair with the largest exact
     4<x,y>^2 / (|x|^2|y|^2) (as a Fraction), proving every cosine <= 1/2 - margin
     iff ok."""
+    if not 0 <= margin < Fraction(1, 2):
+        raise ValueError("margin must lie in [0, 1/2)")
     lim = (1 - 2 * margin) ** 2  # need 4 d^2 <= lim * nx * ny
     ok = True
     worst = (Fraction(-1), None)
@@ -88,14 +90,17 @@ def certify(V: list[list[int]], margin: Fraction = Fraction(0)):
 
 
 def proven_margin(worst_q: Fraction) -> Fraction:
-    """Largest d = k*10^-e (2 significant digits) with (1-2d)^2 >= worst_q."""
-    best = Fraction(0)
+    """Largest d = k*10^-e (2 significant digits, 0 < d < 1/2) with
+    (1-2d)^2 >= worst_q.  d must stay below 1/2: past it (1-2d)^2 grows again
+    and "cos <= 1/2 - d" would no longer follow from the integer test."""
     for e in range(2, 18):
         for k in range(99, 0, -1):
             d = Fraction(k, 10 ** e)
+            if d >= Fraction(1, 2):
+                continue
             if (1 - 2 * d) ** 2 >= worst_q:
                 return d
-    return best
+    return Fraction(0)
 
 
 def main() -> int:
