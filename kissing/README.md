@@ -258,7 +258,7 @@ provably exists, since Takhanov et al. reached 0.499999937751:
 | penalty continuation, crude step rule | ~0.52 | 0.5088 |
 | Riesz continuation + Armijo line search (`KISS_SOLVER=gd`, the default) | **0.50519** | 0.5107 |
 | BLAS engine + Adam on the published schedule (`KISS_SOLVER=adam`) | **0.500477** | not run |
-| `fastriesz` + fingerprint screen + branching + minimax polish (2026-10-02) | **0.5001014** | 0.506671 |
+| `fastriesz` + fingerprint screen + branching + minimax polish (2026-10-02) | **0.5001014** | 0.506587 |
 
 The Adam row is the newer calibration; see `CALIBRATION_optimizer.md` for how it
 was measured and `lib/FAITHFUL_841.md` for the opt-in source-faithful protocol.
@@ -307,9 +307,9 @@ the short version:
   above 102 near-antipodal pairs.  Entering the schedule at `s = 16` keeps it
   partially
   (443-490 pairs) and ends at 0.5097; entering at `s = 32` keeps ZE99 rigid and
-  ends on two discrete strained levels, `0.506671` and `0.506738` -- the best
-  values this repository has reached for 1155 points in R^13 (previously
-  0.5088), but a uniformly strained family like dimension 12's 0.5042, not a
+  ends on two discrete strained levels, `0.506671` and `0.506738` (the first
+  minimax-polishes to `0.506587`) -- the best values this repository has
+  reached for 1155 points in R^13 (previously 0.5088), but a uniformly strained family like dimension 12's 0.5042, not a
   promising one.
 
 A second flaw the calibration exposed: with a seed file the Riesz run was fully

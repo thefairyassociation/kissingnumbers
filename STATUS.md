@@ -85,7 +85,7 @@ unchanged by the latest session.
   of the (cheaply findable) re-crystallised starts have a level below 1/2?  The published
   841 proves at least one member of the family does.
 * **Dimension 13 with 1155 points** (the actual target): the new engine
-  reaches **0.506671** (previous best here 0.5088), but that is a uniformly
+  reaches **0.506587** (previous best here 0.5088), but that is a uniformly
   strained copy of the 1154 record, the dimension-13 analogue of the dead-end
   0.504 family above.  Unlike dimension 12, the 1154 record melts in the
   first stage every single time and never re-crystallises, so the trick does
