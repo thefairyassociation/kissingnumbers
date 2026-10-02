@@ -301,8 +301,11 @@ the short version:
   `0.5001014` after the local minimax polish -- the bottom of that basin.
   Still above 1/2: **the calibration is not passed.**
 * **Dimension 13.**  Melting is not a coin flip there: ZE99 + 1 melts at
-  `s = 8` in every run tried (antipodal pairs 577 -> 65-96), even at a tenth of
-  the learning rate.  Entering the schedule at `s = 16` holds it partially
+  `s = 8` in every run tried (antipodal pairs 577 -> 65-102), even at a tenth
+  of the learning rate, and it never re-crystallises the way the dimension-12
+  core does: 44 first-stage screens at jitter 0.005 plus 36 earlier runs, none
+  above 102 near-antipodal pairs.  Entering the schedule at `s = 16` keeps it
+  partially
   (443-490 pairs) and ends at 0.5097; entering at `s = 32` keeps ZE99 rigid and
   ends on two discrete strained levels, `0.506671` and `0.506738` -- the best
   values this repository has reached for 1155 points in R^13 (previously
