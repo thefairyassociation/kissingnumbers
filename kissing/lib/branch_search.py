@@ -40,6 +40,8 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import minimax_polish  # noqa: E402
 FASTRIESZ = HERE / "fastriesz"
 CERTIFY = HERE / "certify_float.py"
 
@@ -78,6 +80,11 @@ def main() -> int:
     ap.add_argument("--scale", type=float, default=3.4285714)
     ap.add_argument("--adam", default="manifold")
     ap.add_argument("--pool", type=int, default=8)
+    ap.add_argument("--extra-root", action="append", default=[],
+                    help="further root states (same --root-stage); roots are chosen uniformly")
+    ap.add_argument("--polish-below", type=float, default=0.5005,
+                    help="minimax-polish every finished candidate below this; rank by the polished value")
+    ap.add_argument("--polish-rounds", type=int, default=30)
     ap.add_argument("--root-prob", type=float, default=0.25,
                     help="probability of branching from the root instead of the pool")
     ap.add_argument("--seed", type=int, default=0)
@@ -92,6 +99,7 @@ def main() -> int:
     log = open(out / "branch.log", "a")
     # pool entries: (final_max, parent_path, parent_stage)
     pool: list[tuple[float, str, int]] = []
+    roots = [str(Path(r).resolve()) for r in [a.root] + a.extra_root]
     screen_vals: list[float] = []
     best = (9.0, None)
     t0 = time.time()
@@ -105,7 +113,7 @@ def main() -> int:
     def launch(jid: int):
         # tournament: favour the best parents, keep some breadth
         if not pool or rng.random() < a.root_prob:
-            parent, pstage = str(Path(a.root).resolve()), a.root_stage
+            parent, pstage = rng.choice(roots), a.root_stage
         else:
             cands = rng.sample(pool, min(3, len(pool)))
             _, parent, pstage = min(cands)
@@ -120,7 +128,19 @@ def main() -> int:
             cmd += ["--screen", f"{a.screen_stage}:{thr!r}"]
         env = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
-        return jid, parent, pstage, sigma, thr, r.stdout.strip()
+        line = r.stdout.strip()
+        polished = None
+        cand = out / f"cand_n{a.n}_N{a.N}_s{jid}.txt"
+        if line and "status=done" in line and cand.exists():
+            m = indep_max(cand)
+            if m < a.polish_below:
+                X = minimax_polish.unit(cand)
+                Y = minimax_polish.polish(X, rounds=a.polish_rounds, verbose=False)
+                polished = minimax_polish.max_cos(Y)
+                if polished < m:
+                    np.savetxt(cand, Y, fmt="%.17g",
+                               header=f"n={a.n} N={a.N} max_inner={polished:.17g} minimax_polished_from={m:.17g}")
+        return jid, parent, pstage, sigma, thr, line, polished
 
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         futs = set()
@@ -132,7 +152,7 @@ def main() -> int:
                 break
             done = next(as_completed(futs))
             futs.remove(done)
-            jid, parent, pstage, sigma, thr, line = done.result()
+            jid, parent, pstage, sigma, thr, line, polished = done.result()
             if not line:
                 continue
             d = parse(line)
@@ -147,8 +167,9 @@ def main() -> int:
             state = out / f"state_n{a.n}_N{a.N}_s{jid}_k{a.save_stage}.txt"
             keep_cand = False
             if d["status"] == "done" and cand.exists():
-                m = indep_max(cand)
+                m = indep_max(cand)  # after any polish: the file now holds the polished points
                 rec["indep_max"] = m
+                rec["polished"] = polished
                 if state.exists():
                     pool.append((m, str(state), a.save_stage))
                 if m < best[0]:

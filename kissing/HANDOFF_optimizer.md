@@ -34,7 +34,17 @@ Scoreboard so far (all on this exact seed):
 | BLAS + L-BFGS branch, equal wall clock | 0.51113 |
 | BLAS + L-BFGS branch, finer homotopy (`KISS_SMUL=1.04`) | 0.51392 |
 | BLAS engine + `KISS_SOLVER=gd` | 0.509619958637 |
-| BLAS engine + published-schedule Adam | **0.500477238629** ← best here, still not feasible |
+| BLAS engine + published-schedule Adam | 0.500477238629 |
+| old engine, seed 51 rerun (3 threads, 2026-10-02) | 0.500244870005 |
+| `fastriesz` held-start screen + `branch_search.py` (2026-10-02) | 0.500164723797 |
+| same candidate after `minimax_polish.py` (basin bottom) | **0.5001014** ← best here, still not feasible |
+
+**2026-10-02 addendum.**  The engine bottleneck is gone (`lib/fastriesz.c`,
+about 17x the per-core throughput, same loss).  The search bottleneck is now
+understood: the first exponent stage either melts the 840 core or holds it,
+and only held starts reach the witness's family.  See the last section of
+`CALIBRATION_optimizer.md` and item 1 of "If someone picks this up" in
+`README.md` for the recipe; the calibration is still not passed.
 
 Only after 841 goes below 0.5 is it worth re-running dimension 13 at N = 1155.
 

@@ -1,7 +1,7 @@
 {
-  "summary": "no kissing-number record beaten; best exactly verified counts",
+  "summary": "no kissing-number record beaten; best exactly verified counts (12: published 841 certified here; 13, 14: reproductions)",
   "per_dimension": {
-    "12": 840,
+    "12": 841,
     "13": 1154,
     "14": 1932
   },
@@ -10,5 +10,11 @@
     "13": 1154,
     "14": 1932
   },
-  "records_source": "https://cohn.mit.edu/kissing-numbers (fetched 2026-08-21)"
+  "records_source": "https://cohn.mit.edu/kissing-numbers (fetched 2026-08-21)",
+  "notes": {
+    "12": "841 = the published Takhanov-Assylbekov-Yun configuration, certified exactly here (lib/certify_float.py, dim12/configs/takhanov841_certified.json); the best configuration *constructed* here is the classical 840.",
+    "13": "1154 = Zinoviev-Ericson reproduction (exact, Q(sqrt 3))",
+    "14": "1932 = Ganzhinov reproduction (exact, integer)"
+  },
+  "updated": "2026-10-02"
 }

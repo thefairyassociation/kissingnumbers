@@ -34,6 +34,10 @@
  *   --save-stage K      also write the state reached after stage K (1-based)
  *   --screen K:T        abort a seed if max-IP after stage K exceeds T
  *                       (may be repeated)
+ *   --screen-anti K:A   abort a seed with fewer than A near-antipodal pairs
+ *                       (cosine < -0.99) after stage K.  For the dim-12
+ *                       calibration this separates the two outcomes of the
+ *                       first stage (core holds / core melts) cleanly.
  *   --extra hypercube|gauss|file   row N: uniform random (+-1)^n/sqrt(n),
  *                       Gaussian, or the file's own row        (default hypercube)
  *   --jit J             Gaussian jitter added to every row     (default 0)
@@ -109,6 +113,16 @@ static void normalize_rows(double *X) {
         q = q > 0 ? 1.0 / sqrt(q) : 1.0;
         for (int k = 0; k < n; k++) x[k] *= q;
     }
+}
+
+static long antipodal_pairs(const double *X) { /* pairs with cosine < -0.99 */
+    cblas_dsyrk(CblasRowMajor, CblasUpper, CblasNoTrans, N, n, 1.0, X, n, 0.0, Gr, N);
+    long c = 0;
+    for (int i = 0; i < N; i++) {
+        const double *gi = Gr + (size_t)i * N;
+        for (int j = i + 1; j < N; j++) c += gi[j] < -0.99;
+    }
+    return c;
 }
 
 static double gram_max(const double *X) {
@@ -425,6 +439,7 @@ int main(int argc, char **argv) {
     double scale = 1.0, jit = 0.0, keep = 0.505;
     const char *extra = "hypercube";
     int scr_k[16]; double scr_t[16]; int nscr = 0;
+    int anti_k[16]; long anti_a[16]; int nanti = 0;
     for (int a = 5; a < argc; a++) {
         const char *o = argv[a];
 #define NEXT (a + 1 < argc ? argv[++a] : (fprintf(stderr, "%s needs a value\n", o), exit(1), ""))
@@ -438,6 +453,11 @@ int main(int argc, char **argv) {
             const char *v = NEXT; int k; double t;
             if (nscr >= 16 || sscanf(v, "%d:%lf", &k, &t) != 2) { fprintf(stderr, "--screen K:T\n"); return 1; }
             scr_k[nscr] = k; scr_t[nscr] = t; nscr++;
+        }
+        else if (!strcmp(o, "--screen-anti")) {
+            const char *v = NEXT; int k; long t;
+            if (nanti >= 16 || sscanf(v, "%d:%ld", &k, &t) != 2) { fprintf(stderr, "--screen-anti K:A\n"); return 1; }
+            anti_k[nanti] = k; anti_a[nanti] = t; nanti++;
         }
         else if (!strcmp(o, "--extra")) extra = NEXT;
         else if (!strcmp(o, "--jit")) jit = atof(NEXT);
@@ -521,6 +541,7 @@ int main(int argc, char **argv) {
         }
 
         double smax[13]; int done = 0, screened = 0, broke = 0;
+        long anti_seen = -1;
         for (int st = start_stage; st < nstages; st++) {
             long iters = (long)llround(SCHED[st].it * scale);
             double m = run_stage(SCHED[st].s, iters, SCHED[st].lr * LR_SCALE, raw);
@@ -536,14 +557,19 @@ int main(int argc, char **argv) {
             }
             for (int q = 0; q < nscr; q++)
                 if (scr_k[q] == st + 1 && m > scr_t[q]) screened = 1;
+            for (int q = 0; q < nanti; q++)
+                if (anti_k[q] == st + 1) {
+                    anti_seen = antipodal_pairs(Z);
+                    if (anti_seen < anti_a[q]) screened = 1;
+                }
             if (screened) break;
         }
         double final = done ? smax[done - 1] : NAN;
         printf("seed=%ld extra=%lu start=%.6f stages=", seed, extra_index, start_max);
         for (int q = 0; q < done; q++) printf("%s%.9f", q ? "," : "", smax[q]);
-        printf(" final=%.15f best=%.15f status=%s time=%.1f rebuilds=%ld avg_list=%.0f\n",
+        printf(" final=%.15f best=%.15f status=%s time=%.1f rebuilds=%ld avg_list=%.0f anti=%ld\n",
                final, best_max, broke ? "breakdown" : screened ? "screened" : "done",
-               wall() - t0, n_rebuild, n_list_eval ? list_pairs_sum / n_list_eval : 0.0);
+               wall() - t0, n_rebuild, n_list_eval ? list_pairs_sum / n_list_eval : 0.0, anti_seen);
         fflush(stdout);
         if (!broke && (save_all || best_max < keep)) {
             char path[4096], note[256];

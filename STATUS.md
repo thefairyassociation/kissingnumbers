@@ -57,24 +57,36 @@ unchanged by the latest session.
   exact values, how many antipodal pairs) shows:
   * the authors' own schedule, run on CPU, melts the 840 core and always ends
     near **0.534** — the wrong family;
-  * starting gently keeps the core rigid and ends near **0.504** — also wrong;
+  * starting gently keeps the core rigid and ends near **0.504** — also wrong
+    (uniformly strained);
   * the rare "strong basin" the old code found once in 48 tries has the
     **same fingerprint as the published 841** — the right family.
-* **Branching search** (`kissing/lib/branch_search.py`): once a run reaches
-  the right family, re-running it from an early checkpoint with small
-  perturbations stays in that family almost every time.  That turned a
-  1-in-48 event into the default and lowered the calibration's best value:
+* **The very first stage is a coin flip that decides the family.**  After the
+  first exponent stage the core has either melted or held, and counting
+  antipodal pairs tells which after 6 seconds (the max inner product cannot).
+  A smaller random kick at the start makes "held" several times more likely.
+  So good starting points went from about 25 CPU-minutes each to about one.
+* **Branching search** (`kissing/lib/branch_search.py`): re-running a held
+  start from an early checkpoint with small perturbations stays in the right
+  family; finals land on a few discrete levels per start.  Each good result is
+  then pushed to the bottom of its basin by `minimax_polish.py`.
 
   | | best max inner product for 841 points in R^12 (need < 0.5) |
   | --- | --- |
   | old optimiser, best ever recorded | 0.500477 |
   | old optimiser, rerun this session | 0.500245 |
-  | **new branching search** | **0.500165** (see `kissing/CALIBRATION_optimizer.md`) |
+  | **new pipeline** | **0.5001014** |
 
   Still above 0.5, so the calibration is **still not passed** — but the gap
-  shrank by about two thirds, and the remaining obstacle is now specific:
-  final values land on a small set of discrete levels per starting basin, and
-  the best level reached so far is just above 1/2.
+  shrank by about 80%, and the remaining question is now concrete: does one
+  of the (cheaply findable) held starts have a level below 1/2?  The published
+  841 proves at least one member of the family does.
+* **Dimension 13 with 1155 points** (the actual target): the new engine
+  reaches **0.506671** (previous best here 0.5088), but that is a uniformly
+  strained copy of the 1154 record, the dimension-13 analogue of the dead-end
+  0.504 family above.  Unlike dimension 12, the 1154 record melts in the
+  first stage every single time, so the "held" trick does not transfer
+  directly.  No evidence either way about whether 1155 exists.
 
 ## How to check things yourself
 
@@ -88,9 +100,10 @@ python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinate
 
 ## What to do next
 
-1. **More starting basins, not more branches.**  Each strong starting basin
-   has its own set of reachable levels.  Find many (cheap screening at
-   exponent 64) and branch each; one of them may contain a level below 1/2.
+1. **More held starts, not more branches.**  Each held start has its own set
+   of reachable levels.  Find many (6-second screen on the antipodal-pair
+   count) and branch each; one of them may contain a level below 1/2.  The
+   exact commands are in `kissing/README.md`, "If someone picks this up".
 2. Once the calibration passes, run the identical pipeline on dimension 13
    with 1155 points (seed files and commands in
    `kissing/CALIBRATION_optimizer.md`).

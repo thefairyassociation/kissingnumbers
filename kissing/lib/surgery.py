@@ -14,6 +14,12 @@ This driver performs local surgery on that defect:
   4. hinge-polish everything at t = 1/2 and accept if E went down
      (or, with --temp, by a Metropolis rule).
 
+With --track-max the acceptance test is the true maximum instead: step 4
+polishes at t = (current max) - 1e-7 and a move is accepted only if the
+recomputed maximum strictly decreased.  This is the right mode for a basin
+that is already near-feasible, where the hinge energy at 1/2 rewards
+spreading strain rather than lowering the maximum.
+
 If E reaches 0 the configuration is polished once more at a strictly smaller
 threshold, checked by an independent NumPy recomputation and written as
 HIT_*.txt; certify_float.py is then run on it to produce the exact proof.
@@ -112,6 +118,8 @@ def main() -> int:
     ap.add_argument("--polish-iters", type=int, default=6000)
     ap.add_argument("--iters", type=int, default=0, help="stop after this many moves (0: no limit)")
     ap.add_argument("--hours", type=float, default=1.0)
+    ap.add_argument("--track-max", action="store_true",
+                    help="accept on a strictly lower true maximum (polish at t = max - 1e-7)")
     ap.add_argument("--temp", type=float, default=0.0,
                     help="Metropolis temperature on relative energy change (0: greedy)")
     a = ap.parse_args()
@@ -127,7 +135,13 @@ def main() -> int:
 
     X = load(a.start)
     N, n = X.shape
-    X, E, mx = hinge(X, 0.5, 20000, work, "init")
+    if a.track_max:
+        G0 = X @ X.T
+        np.fill_diagonal(G0, -2)
+        mx = float(G0.max())
+        E = mx  # in this mode "energy" is the true maximum
+    else:
+        X, E, mx = hinge(X, 0.5, 20000, work, "init")
     best_E, best_X = E, X.copy()
     print(f"start {a.start}: N={N} n={n} E={E:.6e} max={mx:.12f}", flush=True)
     log.write(json.dumps({"move": 0, "E": E, "max": mx, "start": a.start}) + "\n")
@@ -140,18 +154,22 @@ def main() -> int:
         if time.time() - t0 > 3600 * a.hours:
             break
         k = int(rng.integers(1, a.kmax + 1))
-        v = violation_energy(X)
+        v = violation_energy(X, (E - 2e-6) if a.track_max else 0.5)
         p = v + 1e-3 * v.mean() + 1e-300
         p /= p.sum()
         drop = rng.choice(N, size=k, replace=False, p=p)
         keep = np.setdiff1d(np.arange(N), drop)
-        Y, _, _ = hinge(X[keep], 0.5 - a.slack, a.relax_iters, work, "relax")
+        Y, _, _ = hinge(X[keep], (E if a.track_max else 0.5) - a.slack, a.relax_iters, work, "relax")
         new = []
         for _ in range(k):
             u = deepest_hole(np.vstack([Y] + [np.array(new)] if new else [Y]), rng)
             new.append(u)
         Xn = np.vstack([Y, np.array(new)])
-        Xn, En, mxn = hinge(Xn, 0.5, a.polish_iters, work, "polish")
+        if a.track_max:
+            Xn, _, mxn = hinge(Xn, E - 1e-7, a.polish_iters, work, "polish")
+            En = mxn
+        else:
+            Xn, En, mxn = hinge(Xn, 0.5, a.polish_iters, work, "polish")
         accept = En < E
         if not accept and a.temp > 0:
             accept = rng.random() < np.exp(-(En - E) / (a.temp * E))
@@ -167,7 +185,7 @@ def main() -> int:
         print(f"move {move:5d} k={k:2d} E_new={En:.6e} max_new={mxn:.9f}  "
               f"E={E:.6e} best={best_E:.6e} {'ACC' if accept else '   '} {time.time()-t0:7.1f}s",
               flush=True)
-        if E <= FEASIBLE_E:
+        if (a.track_max and E < 0.5) or (not a.track_max and E <= FEASIBLE_E):
             # Strictly feasible: push below 1/2 by a margin, verify independently.
             Xf, Ef, mf = hinge(X, 0.5 - 1e-7, 50000, work, "final")
             Uf = Xf / np.linalg.norm(Xf, axis=1, keepdims=True)

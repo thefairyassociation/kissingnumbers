@@ -41,6 +41,21 @@ python3 -c "import sys;sys.path.insert(0,'kissing/lib');from verify_exact import
 verify_integer('kissing/dim14/configs/ganzhinov_1932_exact.json')"
 ```
 
+**Dimension 12, 841 points — certified exactly here, configuration not ours.**
+The published Takhanov–Assylbekov–Yun coordinates (`lib/testdata/authors_841_coordinates.txt`)
+have maximum cosine `0.4999999377...`, strictly below 1/2, so they need no
+algebraic structure to be proved: `lib/certify_float.py` rounds them to integer
+vectors at scale `2^40` and checks `<x,y> <= 0` or `4<x,y>^2 <= (1-2d)^2 |x|^2|y|^2`
+for all 353220 pairs in exact integer arithmetic, with `d = 6e-8`.  Certificate:
+`dim12/configs/takhanov841_certified.json`; output: `dim12/certify_841_output.txt`.
+So the dimension-12 record is now *exactly* verified in this repository, and
+any future numerical hit strictly below 1/2 (in any dimension) is immediately
+a proof.
+
+```bash
+python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinates.txt
+```
+
 `verify_exact.py` uses `fractions.Fraction` in Q(sqrt D) with an exact
 comparison for `a + b*sqrt(D) <= c`. The integer fast path uses numpy int64
 products — exact, not floating point — after *proving* the no-overflow bound
@@ -243,6 +258,7 @@ provably exists, since Takhanov et al. reached 0.499999937751:
 | penalty continuation, crude step rule | ~0.52 | 0.5088 |
 | Riesz continuation + Armijo line search (`KISS_SOLVER=gd`, the default) | **0.50519** | 0.5107 |
 | BLAS engine + Adam on the published schedule (`KISS_SOLVER=adam`) | **0.500477** | not run |
+| `fastriesz` + fingerprint screen + branching + minimax polish (2026-10-02) | **0.5001014** | 0.506671 |
 
 The Adam row is the newer calibration; see `CALIBRATION_optimizer.md` for how it
 was measured and `lib/FAITHFUL_841.md` for the opt-in source-faithful protocol.
@@ -252,6 +268,42 @@ The two columns are close, and the left one is a case where the answer is *yes*.
 So the optimiser here simply cannot resolve the question: a dimension-13
 near-miss at 0.5088 is **not** evidence that 1155 points fail to exist. The
 structural results above stand on their own; the numerical ones do not.
+
+### 2026-10-02 update: what the calibration now says
+
+Details and every number are in `CALIBRATION_optimizer.md` (last section);
+the short version:
+
+* **The first exponent stage is a coin flip that decides everything.**  After
+  `s = 8` the 840 core has either *melted* (110-240 near-antipodal pairs left,
+  inner products far from the canonical values) or *held* (about 401-406
+  pairs).  The max inner product cannot tell the two apart at that point
+  (about 0.60 either way), but the antipodal-pair count separates them
+  perfectly, so `fastriesz --screen-anti 1:300` rejects a melted start after
+  6 s instead of 30 s.  A smaller start jitter (0.005 instead of 0.03) raises
+  the hold rate from about 1 in 48 to about 1 in 10-25.
+* **Held starts are the published witness's family.**  Fingerprints
+  (fraction of inner products within 0.01 of a canonical-840 value; number of
+  near-antipodal pairs): witness 0.724 / 387, best branch 0.728 / 388, versus
+  0.37 / 11-56 for melted runs and 0.83 / 372 for a rigid "gentle" start (which
+  ends uniformly strained at 0.5042).  Under natural labels the held runs are
+  heavily rearranged -- half of the canonical antipodal pairs are broken and
+  48-system points pair with bridges -- so the family is an 840-like
+  structure *re-crystallised* with new labels plus a defect for the extra
+  point.  That reconciles `STRUCTURAL_841.md` ("far from the core under
+  natural labels") with the witness's canonical inner-product spectrum.
+* **Branching** from a held state at `s = 16` stays in the family; finals land
+  on discrete levels per root.  Best level so far: `0.500165` from the search,
+  `0.5001014` after the local minimax polish -- the bottom of that basin.
+  Still above 1/2: **the calibration is not passed.**
+* **Dimension 13.**  Melting is not a coin flip there: ZE99 + 1 melts at
+  `s = 8` in every run tried (antipodal pairs 577 -> 65-96), even at a tenth of
+  the learning rate.  Entering the schedule at `s = 16` holds it partially
+  (443-490 pairs) and ends at 0.5097; entering at `s = 32` keeps ZE99 rigid and
+  ends on two discrete strained levels, `0.506671` and `0.506738` -- the best
+  values this repository has reached for 1155 points in R^13 (previously
+  0.5088), but a uniformly strained family like dimension 12's 0.5042, not a
+  promising one.
 
 A second flaw the calibration exposed: with a seed file the Riesz run was fully
 deterministic, so two different "restarts" returned bit-identical answers
@@ -321,6 +373,10 @@ violations; `gcode` rebuilds a valid 1932 from `V` + supports + solved cosets;
 
 ## Still running when this was written
 
+*(Historical, 2026-08-22: none of these processes survive a container restart.
+The 2026-10-02 session ran its searches in scratch space and recorded the
+outcomes in `CALIBRATION_optimizer.md` and `logs/progress.log`.)*
+
 Four searches are left going, all of which write to `logs/` and check every
 candidate through the exact verifier before claiming anything:
 
@@ -337,11 +393,17 @@ A success would appear as a `logs/HIT_*.txt` file; none has been written.
 
 The three things that look most worth attacking next, in order:
 
-1. **A better optimiser.** The calibration above is the honest bottleneck: the
-   published dim-12 method reaches 0.4999999 on a case where this code reaches
-   0.52. An L-BFGS inner solve (rather than gradient descent with a backtracking
-   line search) plus many more restarts would make the dim-13 numerical evidence
-   worth something either way.
+1. **Finish the calibration with many held roots.**  *(Updated 2026-10-02;
+   the original item asked for "a better optimiser", and the 2026-08 notes
+   showed L-BFGS was a regression.)*  The machinery now exists and is fast:
+   screen fresh starts on the antipodal-pair count after `s = 8`
+   (`fastriesz --stages 2 --screen-anti 1:300 --save-stage 2 --jit 0.005`),
+   then run `branch_search.py` over all held roots and minimax-polish the good
+   finals.  Each root has its own discrete set of final levels; the best seen
+   so far bottoms out at 0.5001014.  The open question is simply whether some
+   root has a level below 1/2 -- the published witness proves at least one
+   member of this family does.  Only after that is the dimension-13 numerical
+   evidence worth anything either way.
 2. **Dimension 14 with `dim V = 6`.** 25 supports would give 1600 weight-8
    vectors and 1964 > 1932. Structural cliques of up to 72 supports exist for
    minimum-weight-6 codes; what collapses is the F_2 coset system. A smarter
