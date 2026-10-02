@@ -23,6 +23,7 @@ RIESZ_CFLAGS := -I$(SCIPY_OPENBLAS_INC) -include cblas.h \
 	-Dcblas_dgemm=scipy_cblas_dgemm -Dcblas_dscal=scipy_cblas_dscal \
 	-Dcblas_ddot=scipy_cblas_ddot -Dcblas_daxpy=scipy_cblas_daxpy \
 	-Dcblas_dcopy=scipy_cblas_dcopy -Dcblas_dnrm2=scipy_cblas_dnrm2 \
+	-Dcblas_dsyrk=scipy_cblas_dsyrk -Dcblas_dsymm=scipy_cblas_dsymm \
 	-Dopenblas_set_num_threads=scipy_openblas_set_num_threads
 LIBS_RIESZ := -L$(SCIPY_OPENBLAS_LIB) -Wl,-rpath,$(SCIPY_OPENBLAS_LIB) -lscipy_openblas -lm
 endif
@@ -44,7 +45,7 @@ endef
 
 all: riesz-tools verify-tools
 
-riesz-tools: riesz riesz2
+riesz-tools: riesz riesz2 fastriesz
 
 # Reports whether the Riesz targets can be built, without building anything.
 blas-check:
@@ -55,11 +56,21 @@ riesz: riesz.c
 	$(require_blas)
 	$(CC) $(OMPFLAGS) $(RIESZ_CFLAGS) -o $@ $< $(LIBS_RIESZ)
 
+# Many-start throughput engine (one candidate per process).  -fopenmp-simd only
+# enables `#pragma omp simd`; never add -ffast-math/-Ofast (NaN guards).
+fastriesz: fastriesz.c
+	$(require_blas)
+	$(CC) -O3 -march=native -fopenmp-simd $(RIESZ_CFLAGS) -o $@ $< $(LIBS_RIESZ)
+
 # riesz2 is the name every legacy script invokes; it is the same program.
 riesz2: riesz
 	cp -f riesz riesz2
 
-verify-tools: mis8 clique gclique addable opt opt2 signmis
+verify-tools: mis8 clique gclique addable opt opt2 signmis hingepol
+
+# Exact-target hinge polish (no BLAS).  Never -ffast-math.
+hingepol: hingepol.c
+	$(CC) -O3 -march=native -o $@ $< -lm
 
 mis8: mis8.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
@@ -77,4 +88,4 @@ signmis: signmis.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
 
 clean:
-	rm -f riesz riesz2
+	rm -f riesz riesz2 fastriesz hingepol

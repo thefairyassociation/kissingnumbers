@@ -1,0 +1,5 @@
+kissing/lib/testdata/authors_841_coordinates.txt: N=841 n=12 integer scale 2^40
+  worst pair (413, 561): exact 4<x,y>^2/(|x|^2|y|^2) = 0.99999975100550753  (cosine ~ 0.499999937751373)
+  CERTIFIED (exact integer arithmetic): all 353220 pairs have cosine <= 1/2 - 3/50000000 (6.00e-08)
+  count 841 vs record 840: BEATS it
+  wrote kissing/dim12/configs/takhanov841_certified.json
