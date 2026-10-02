@@ -299,3 +299,68 @@ test `4<x,y>^2 <= (1-2d)^2 |x|^2 |y|^2`).  The published witness certifies with
 `d = 6e-8`; the certificate is `dim12/configs/takhanov841_certified.json`.
 So a numerical hit below 1/2 -- in any dimension -- is immediately provable;
 only tight configurations still need algebraic coordinates.
+
+### Multi-root search and the 0.50010 floor (end of the 2026-10-02 session)
+
+The first exponent stage either melts the core into a disordered state
+(110-240 pairs with cosine below -0.99 after `s = 8`) or re-crystallises it
+into a new antipodal-rich structure (401-406 pairs; the canonical core has
+372).  Only re-crystallised starts reach the witness's family, and the split
+is visible after 6 s, long before the maximum inner product shows anything
+(about 0.60 either way).  Entering the schedule at `s = 16` instead keeps the
+original core rigid (exactly 372 pairs) and leads to the strained 0.504 family.
+
+Screen used for the final run (jitter 0.005 raises the re-crystallisation rate
+from about 1/48 at the old 0.03 to about 1/20):
+
+```bash
+fastriesz 12 841 cl840_841.txt ROOTS --extra file --adam manifold \
+  --scale 3.4285714 --jit 0.005 --stages 2 --screen-anti 1:300 \
+  --save-stage 2 --keep 0 --seeds 2000 2600
+```
+
+550 seeds gave 28 re-crystallised roots (5.1%).  Together with seed 51 and
+the five roots of an earlier batch, `branch_search.py` ran 92 branch jobs over
+38 parents (61 completed, 31 stopped at the `s = 512` screen).  Best level per
+root, after the local minimax polish:
+
+| root | branches | best max inner product |
+| --- | ---: | ---: |
+| seed 51 (old engine, one thread) | ~70 over the session | **0.5001014** |
+| fastriesz seed 2280 | 3 | 0.5001039 |
+| fastriesz seed 2055 | 4 | 0.5001406 |
+| fastriesz seed 2180 | 2 | 0.5001527 |
+| fastriesz seed 2399 | 1 | 0.5002536 |
+| other roots | 1-17 | 0.50026 - 0.503 |
+
+**No branch went below 1/2.**  Independent roots reach the same floor,
+about `0.50010`, within a few branches, which suggests a common defect type
+for this family.  The published witness (0.49999994) is in the same family by
+fingerprint, so it must use a different, rarer defect arrangement.  That is
+the open question the calibration now reduces to.
+
+The best result reproduces exactly from these commands (one thread, so
+deterministic; checked end to end at the end of the session):
+
+```bash
+python3 kissing/lib/seed841.py cl840_841.txt --mode hypercube
+KISS_ADAM_BASE_END=2 KISS_POLISH=0 KISS_SOLVER=adam KISS_LOSS=riesz KISS_INNER=16 \
+  KISS_JIT=0.03 KISS_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  ./kissing/lib/riesz2 12 841 120000 51 cl840_841.txt        # root: s=16 state
+OPENBLAS_NUM_THREADS=1 ./kissing/lib/fastriesz 12 841 cl840_841.txt.riesz.s51.out OUT \
+  --extra file --adam manifold --scale 3.4285714 --start-stage 2 --jit 0.001 \
+  --save-all --seeds 11000008 11000009                      # best 0.500165121392458
+python3 kissing/lib/minimax_polish.py OUT/cand_n12_N841_s11000008.txt polished.txt \
+  --rounds 30                                               # -> 0.500101436054909
+```
+
+Following this repository's convention, no float configuration from the
+search is committed; the commands above regenerate it.
+
+Things tried and dropped in this session: a remove-k/reinsert surgery
+(`surgery.py --track-max`) on the best basin (13 moves, closest 0.5001016,
+never below the 0.5001014 it started from); branching from the `s = 8` state
+with larger kicks (10 runs, 0.50076-0.50229); truncating the schedule at
+`s = 4096` and polishing instead (same level, but the polish costs more than
+the truncated tail saves); lower first-stage learning rates (no effect on the
+re-crystallisation rate).

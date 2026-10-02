@@ -81,9 +81,13 @@ unchanged by the latest session.
   | **new pipeline** | **0.5001014** |
 
   Still above 0.5, so the calibration is **still not passed** — but the gap
-  shrank by about 80%, and the remaining question is now concrete: does one
-  of the (cheaply findable) re-crystallised starts have a level below 1/2?  The published
-  841 proves at least one member of the family does.
+  shrank by about 80%.  In the final run 28 good starts (from 550 tries)
+  were branched 92 times: several *independent* starts land on the same floor,
+  about **0.50010**, within a few tries each.  So this family has a common
+  "typical" way of fitting the extra point that tops out just above 1/2, and
+  the published 841 must use a rarer one.  That is now the precise open
+  question.  The best result reproduces bit-for-bit from the commands in
+  `kissing/CALIBRATION_optimizer.md`.
 * **Dimension 13 with 1155 points** (the actual target): the new engine
   reaches **0.506587** (previous best here 0.5088), but that is a uniformly
   strained copy of the 1154 record, the dimension-13 analogue of the dead-end
@@ -103,13 +107,17 @@ python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinate
 
 ## What to do next
 
-1. **More good starts, not more branches.**  Each re-crystallised start has its own set
-   of reachable levels.  Find many (6-second screen on the antipodal-pair
-   count) and branch each; one of them may contain a level below 1/2.  The
-   exact commands are in `kissing/README.md`, "If someone picks this up".
+1. **Find the rarer defect.**  Every good start tried so far tops out at
+   about 0.50010.  Two ways forward: (a) far more starts — the pipeline is
+   ready and each good start now costs about a CPU-minute to find, so a
+   long run (or a GPU port of `fastriesz`) is straightforward; (b) compare
+   the 0.50010 configurations with the published 841 point by point to see
+   what the extra point's neighbourhood looks like in each, and seed that
+   structure directly.
 2. Once the calibration passes, run the identical pipeline on dimension 13
-   with 1155 points (seed files and commands in
-   `kissing/CALIBRATION_optimizer.md`).
+   with 1155 points.  Note that dimension 13 behaves differently: its record
+   configuration never re-crystallises in the first stage (0 of 80 tries), so
+   the dimension-12 trick needs adapting there.
 3. The combinatorial ideas for dimension 14 listed at the end of
    `kissing/README.md` are untouched and independent of all of the above.
 
