@@ -41,8 +41,9 @@ Scoreboard so far (all on this exact seed):
 
 **2026-10-02 addendum.**  The engine bottleneck is gone (`lib/fastriesz.c`,
 about 17x the per-core throughput, same loss).  The search bottleneck is now
-understood: the first exponent stage either melts the 840 core or holds it,
-and only held starts reach the witness's family.  See the last section of
+understood: the first exponent stage either melts the 840 core into a
+disordered state or re-crystallises it into a new antipodal-rich structure,
+and only the second kind reaches the witness's family.  See the last section of
 `CALIBRATION_optimizer.md` and item 1 of "If someone picks this up" in
 `README.md` for the recipe; the calibration is still not passed.
 

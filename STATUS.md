@@ -61,12 +61,15 @@ unchanged by the latest session.
     (uniformly strained);
   * the rare "strong basin" the old code found once in 48 tries has the
     **same fingerprint as the published 841** — the right family.
-* **The very first stage is a coin flip that decides the family.**  After the
-  first exponent stage the core has either melted or held, and counting
-  antipodal pairs tells which after 6 seconds (the max inner product cannot).
-  A smaller random kick at the start makes "held" several times more likely.
-  So good starting points went from about 25 CPU-minutes each to about one.
-* **Branching search** (`kissing/lib/branch_search.py`): re-running a held
+* **The very first stage is a coin flip that decides the family.**  In the
+  first exponent stage the 840 core either melts into a disordered state or
+  re-crystallises into a new structure with *more* antipodal pairs than it
+  started with; only the second kind leads to the published 841's family.
+  Counting antipodal pairs tells which after 6 seconds (the max inner product
+  cannot).  A smaller random kick at the start makes the good outcome several
+  times more likely, so good starting points went from about 25 CPU-minutes
+  each to about one.
+* **Branching search** (`kissing/lib/branch_search.py`): re-running a re-crystallised
   start from an early checkpoint with small perturbations stays in the right
   family; finals land on a few discrete levels per start.  Each good result is
   then pushed to the bottom of its basin by `minimax_polish.py`.
@@ -79,14 +82,14 @@ unchanged by the latest session.
 
   Still above 0.5, so the calibration is **still not passed** — but the gap
   shrank by about 80%, and the remaining question is now concrete: does one
-  of the (cheaply findable) held starts have a level below 1/2?  The published
+  of the (cheaply findable) re-crystallised starts have a level below 1/2?  The published
   841 proves at least one member of the family does.
 * **Dimension 13 with 1155 points** (the actual target): the new engine
   reaches **0.506671** (previous best here 0.5088), but that is a uniformly
   strained copy of the 1154 record, the dimension-13 analogue of the dead-end
   0.504 family above.  Unlike dimension 12, the 1154 record melts in the
-  first stage every single time, so the "held" trick does not transfer
-  directly.  No evidence either way about whether 1155 exists.
+  first stage every single time and never re-crystallises, so the trick does
+  not transfer directly.  No evidence either way about whether 1155 exists.
 
 ## How to check things yourself
 
@@ -100,7 +103,7 @@ python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinate
 
 ## What to do next
 
-1. **More held starts, not more branches.**  Each held start has its own set
+1. **More good starts, not more branches.**  Each re-crystallised start has its own set
    of reachable levels.  Find many (6-second screen on the antipodal-pair
    count) and branch each; one of them may contain a level below 1/2.  The
    exact commands are in `kissing/README.md`, "If someone picks this up".

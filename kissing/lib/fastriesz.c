@@ -37,7 +37,7 @@
  *   --screen-anti K:A   abort a seed with fewer than A near-antipodal pairs
  *                       (cosine < -0.99) after stage K.  For the dim-12
  *                       calibration this separates the two outcomes of the
- *                       first stage (core holds / core melts) cleanly.
+ *                       first stage (core re-crystallises / melts) cleanly.
  *   --extra hypercube|gauss|file   row N: uniform random (+-1)^n/sqrt(n),
  *                       Gaussian, or the file's own row        (default hypercube)
  *   --jit J             Gaussian jitter added to every row     (default 0)

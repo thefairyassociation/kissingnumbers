@@ -275,24 +275,28 @@ Details and every number are in `CALIBRATION_optimizer.md` (last section);
 the short version:
 
 * **The first exponent stage is a coin flip that decides everything.**  After
-  `s = 8` the 840 core has either *melted* (110-240 near-antipodal pairs left,
-  inner products far from the canonical values) or *held* (about 401-406
-  pairs).  The max inner product cannot tell the two apart at that point
+  `s = 8` the 840 core has either *melted* into a disordered state (110-240
+  near-antipodal pairs left, inner products far from the canonical values) or
+  *re-crystallised* into a new antipodal-rich structure (401-406 pairs, more
+  than the canonical 372; canonical-value fraction about 0.6).  Entering the
+  schedule at `s = 16` instead keeps the original core rigid (exactly 372
+  pairs) and leads to the strained 0.504 family, so the melt-and-recrystallise
+  step at `s = 8` is essential.  The max inner product cannot tell the two apart at that point
   (about 0.60 either way), but the antipodal-pair count separates them
   perfectly, so `fastriesz --screen-anti 1:300` rejects a melted start after
   6 s instead of 30 s.  A smaller start jitter (0.005 instead of 0.03) raises
-  the hold rate from about 1 in 48 to about 1 in 10-25.
-* **Held starts are the published witness's family.**  Fingerprints
+  the re-crystallisation rate from about 1 in 48 to about 1 in 10-25.
+* **Re-crystallised starts lead to the published witness's family.**  Fingerprints
   (fraction of inner products within 0.01 of a canonical-840 value; number of
   near-antipodal pairs): witness 0.724 / 387, best branch 0.728 / 388, versus
   0.37 / 11-56 for melted runs and 0.83 / 372 for a rigid "gentle" start (which
-  ends uniformly strained at 0.5042).  Under natural labels the held runs are
+  ends uniformly strained at 0.5042).  Under natural labels these runs are
   heavily rearranged -- half of the canonical antipodal pairs are broken and
   48-system points pair with bridges -- so the family is an 840-like
   structure *re-crystallised* with new labels plus a defect for the extra
   point.  That reconciles `STRUCTURAL_841.md` ("far from the core under
   natural labels") with the witness's canonical inner-product spectrum.
-* **Branching** from a held state at `s = 16` stays in the family; finals land
+* **Branching** from a re-crystallised state at `s = 16` stays in the family; finals land
   on discrete levels per root.  Best level so far: `0.500165` from the search,
   `0.5001014` after the local minimax polish -- the bottom of that basin.
   Still above 1/2: **the calibration is not passed.**
@@ -393,12 +397,12 @@ A success would appear as a `logs/HIT_*.txt` file; none has been written.
 
 The three things that look most worth attacking next, in order:
 
-1. **Finish the calibration with many held roots.**  *(Updated 2026-10-02;
+1. **Finish the calibration with many re-crystallised roots.**  *(Updated 2026-10-02;
    the original item asked for "a better optimiser", and the 2026-08 notes
    showed L-BFGS was a regression.)*  The machinery now exists and is fast:
    screen fresh starts on the antipodal-pair count after `s = 8`
    (`fastriesz --stages 2 --screen-anti 1:300 --save-stage 2 --jit 0.005`),
-   then run `branch_search.py` over all held roots and minimax-polish the good
+   then run `branch_search.py` over all such roots and minimax-polish the good
    finals.  Each root has its own discrete set of final levels; the best seen
    so far bottoms out at 0.5001014.  The open question is simply whether some
    root has a level below 1/2 -- the published witness proves at least one
