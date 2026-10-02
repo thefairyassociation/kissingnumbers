@@ -297,6 +297,13 @@ optimiser's own claim.
 | `lib/analyze_published_841.py`, `STRUCTURAL_841.md` | numerical structure and basin-fingerprint audit of the public 841-point witness |
 | `lib/o4_breadth.py`, `lib/run_o4_faithful_pilot.py`, `lib/verify_o4_841.py` | theorem-valid O(4) breadth seeds, paired faithful pilot runner, and independent read-back verification |
 | `lib/shake.py`, `lib/shakeloop.sh` | remove k points / add k+1 / re-optimise (the dim-12 840 -> 841 method) |
+| `lib/fastriesz.c` | many-start Riesz continuation, ~17x the per-core throughput of `riesz.c` (squaring for power-of-two exponents, Verlet neighbour lists); `--start-stage`/`--save-stage` for branching |
+| `lib/branch_search.py` | go-with-the-winners branching on top of `fastriesz`; independently recomputes every candidate and certifies anything below 1/2 |
+| `lib/hingepol.c` | L-BFGS on `sum (g_ij - t)_+^2`: `E = 0` iff every cosine is <= t (feasibility test) |
+| `lib/minimax_polish.py` | local minimax descent by hinge continuation (`t = max - delta`): the bottom of a candidate's basin |
+| `lib/surgery.py` | remove the most-violated points, relax, reinsert at the deepest holes, re-polish |
+| `lib/certify_float.py` | **exact** certificate for a float configuration whose max cosine is strictly below 1/2 (integer rounding at 2^40, exact angle test) |
+| `lib/test_fast_tools.py` | regression tests for the four tools above against NumPy / `Fraction` references |
 | `lib/mis8.c` | max independent set over all `2^8 * C(n,8)` weight-8 vectors, implicit adjacency |
 | `lib/addable.c` | is a weight-8 configuration maximal? |
 | `lib/signmis.c` | dense-bitset MIS over (support, sign) pairs for a fixed support family |
