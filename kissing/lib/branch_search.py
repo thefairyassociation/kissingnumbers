@@ -80,6 +80,9 @@ def main() -> int:
     ap.add_argument("--scale", type=float, default=3.4285714)
     ap.add_argument("--adam", default="manifold")
     ap.add_argument("--pool", type=int, default=8)
+    ap.add_argument("--root-glob", default=None,
+                    help="also use every file matching this glob as a root (re-scanned before each job), "
+                         "e.g. the --save-stage states of a running held-start screen")
     ap.add_argument("--extra-root", action="append", default=[],
                     help="further root states (same --root-stage); roots are chosen uniformly")
     ap.add_argument("--polish-below", type=float, default=0.5005,
@@ -112,6 +115,12 @@ def main() -> int:
 
     def launch(jid: int):
         # tournament: favour the best parents, keep some breadth
+        if a.root_glob:
+            import glob
+            for f in sorted(glob.glob(a.root_glob)):
+                f = str(Path(f).resolve())
+                if f not in roots:
+                    roots.append(f)
         if not pool or rng.random() < a.root_prob:
             parent, pstage = rng.choice(roots), a.root_stage
         else:
@@ -134,12 +143,17 @@ def main() -> int:
         if line and "status=done" in line and cand.exists():
             m = indep_max(cand)
             if m < a.polish_below:
-                X = minimax_polish.unit(cand)
-                Y = minimax_polish.polish(X, rounds=a.polish_rounds, verbose=False)
-                polished = minimax_polish.max_cos(Y)
-                if polished < m:
-                    np.savetxt(cand, Y, fmt="%.17g",
-                               header=f"n={a.n} N={a.N} max_inner={polished:.17g} minimax_polished_from={m:.17g}")
+                try:
+                    X = minimax_polish.unit(cand)
+                    Y = minimax_polish.polish(X, rounds=a.polish_rounds, verbose=False)
+                    polished = minimax_polish.max_cos(Y)
+                    if polished < m:
+                        np.savetxt(cand, Y, fmt="%.17g",
+                                   header=f"n={a.n} N={a.N} max_inner={polished:.17g} "
+                                          f"minimax_polished_from={m:.17g}")
+                except Exception as exc:  # a failed polish must not take the search down
+                    print(f"polish of job {jid} failed: {exc}", file=sys.stderr, flush=True)
+                    polished = None
         return jid, parent, pstage, sigma, thr, line, polished
 
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
