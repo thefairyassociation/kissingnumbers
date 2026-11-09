@@ -1,0 +1,16 @@
+faithful init: exact seed core + pinned hypercube extra index=3254; no jitter
+start max=0.69692342505867599  solver=adam  loss=riesz  threads=1  N=841 n=12  openblas_threads=1 faithful=1
+faithful plan: polish=0 polish_only=0 penalty_only=0 do_polish=1
+s=8  max=0.621252721062  nfev=1002  t=6.7s
+s=16  max=0.598223146155  nfev=2003  t=13.5s
+s=32  max=0.568630185086  nfev=3004  t=20.5s
+s=64  max=0.553199196762  nfev=5005  t=34.7s
+s=128  max=0.544867739737  nfev=7006  t=49.0s
+s=256  max=0.539901768155  nfev=9007  t=62.8s
+s=512  max=0.537293186412  nfev=11008  t=77.1s
+s=1024  max=0.535731181896  nfev=15009  t=113.9s
+s=2048  max=0.534988209612  nfev=19010  t=188.0s
+s=4096  max=0.534620292059  nfev=23011  t=239.2s
+s=1e+04  max=0.534403809748  nfev=27012  t=285.5s
+s=2e+04  max=0.534326812899  nfev=31013  t=330.1s
+s=4e+04  max=0.534289171428  nfev=35014  t=373.6s
