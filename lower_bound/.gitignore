@@ -1,0 +1,5 @@
+# See the root .gitignore for build products.
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

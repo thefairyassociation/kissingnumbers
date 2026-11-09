@@ -1,7 +1,7 @@
 # Where this project stands (plain English)
 
 *Last updated 2026-10-02.  The detailed technical report is
-[`kissing/README.md`](kissing/README.md); this page is the short version.*
+[`lower_bound/README.md`](lower_bound/README.md); this page is the short version.*
 
 ## What the project is trying to do
 
@@ -28,7 +28,7 @@ unchanged by the latest session.
    dimensions 13 and 14 were rebuilt, decoded and shown to be "stuck": no point
    can be added and no point can move on its own.  Several natural families of
    constructions were ruled out with proofs or exhaustive searches.  This part
-   is finished and reliable (`kissing/README.md`, sections 1–3).
+   is finished and reliable (`lower_bound/README.md`, sections 1–3).
 
 2. **Numerical search (the open front).**  Optimise point positions on the
    sphere and hope to squeeze in one more point.  The catch: the repo's
@@ -43,10 +43,10 @@ unchanged by the latest session.
   whose largest inner product is *strictly* below 1/2 can be rounded to
   integers and checked with exact integer arithmetic.  No algebra needed.  The
   authors' 841 passes with every cosine at most 1/2 − 6×10⁻⁸.
-  Tool: `kissing/lib/certify_float.py`; certificate:
-  `kissing/dim12/configs/takhanov841_certified.json`.  This also means a
+  Tool: `lower_bound/lib/certify_float.py`; certificate:
+  `lower_bound/dim12/configs/takhanov841_certified.json`.  This also means a
   future numerical hit in dimension 13 would be immediately provable.
-* **A search engine about 17× faster per CPU core** (`kissing/lib/fastriesz.c`).
+* **A search engine about 17× faster per CPU core** (`lower_bound/lib/fastriesz.c`).
   Same mathematics as the old optimiser, checked against an independent
   reference to 1e-12.
 * **A feasibility test and a basin-bottom test.**  `hingepol` decides whether a
@@ -69,7 +69,7 @@ unchanged by the latest session.
   cannot).  A smaller random kick at the start makes the good outcome several
   times more likely, so good starting points went from about 25 CPU-minutes
   each to about one.
-* **Branching search** (`kissing/lib/branch_search.py`): re-running a re-crystallised
+* **Branching search** (`lower_bound/lib/branch_search.py`): re-running a re-crystallised
   start from an early checkpoint with small perturbations stays in the right
   family; finals land on a few discrete levels per start.  Each good result is
   then pushed to the bottom of its basin by `minimax_polish.py`.
@@ -87,7 +87,7 @@ unchanged by the latest session.
   "typical" way of fitting the extra point that tops out just above 1/2, and
   the published 841 must use a rarer one.  That is now the precise open
   question.  The best result reproduces bit-for-bit from the commands in
-  `kissing/CALIBRATION_optimizer.md`.
+  `lower_bound/docs/CALIBRATION_optimizer.md`.
 * **Dimension 13 with 1155 points** (the actual target): the new engine
   reaches **0.506587** (previous best here 0.5088), but that is a uniformly
   strained copy of the 1154 record, the dimension-13 analogue of the dead-end
@@ -99,10 +99,10 @@ unchanged by the latest session.
 
 ```bash
 python3 -m pip install numpy scipy scipy-openblas32 sympy
-make -C kissing/lib riesz-tools verify-tools
-bash kissing/lib/selftest.sh                      # old self-checks
-python3 kissing/lib/test_fast_tools.py            # new tools
-python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinates.txt
+make -C lower_bound/lib riesz-tools verify-tools
+bash lower_bound/lib/selftest.sh                      # old self-checks
+python3 lower_bound/lib/test_fast_tools.py            # new tools
+python3 lower_bound/lib/certify_float.py lower_bound/lib/testdata/authors_841_coordinates.txt
 ```
 
 ## What to do next
@@ -119,7 +119,7 @@ python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinate
    configuration never re-crystallises in the first stage (0 of 80 tries), so
    the dimension-12 trick needs adapting there.
 3. The combinatorial ideas for dimension 14 listed at the end of
-   `kissing/README.md` are untouched and independent of all of the above.
+   `lower_bound/README.md` are untouched and independent of all of the above.
 
 ## Housekeeping notes
 
@@ -128,4 +128,4 @@ python3 kissing/lib/certify_float.py kissing/lib/testdata/authors_841_coordinate
   as-is (nothing depends on them).
 * Compiled binaries are build products and are git-ignored; `make` rebuilds
   them.  Never compile the optimisers with `-ffast-math` (see
-  `kissing/HANDOFF_optimizer.md`, trap 1).
+  `lower_bound/docs/HANDOFF_optimizer.md`, trap 1).

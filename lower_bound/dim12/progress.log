@@ -1,0 +1,17 @@
+# lower_bound/dim12/progress.log — append-only
+# ISO-8601 UTC | event | details
+
+2026-08-21T02:44:00Z LIVE_RECORD dim=12 lower=841 upper=1355 source=https://cohn.mit.edu/kissing-numbers refs=[24]=Takhanov-Assylbekov-Yun arXiv:2606.18984 ; [10]=de Laat-Leijenhorst 2024
+2026-08-21T02:45:00Z NOTE reproducing 841 is baseline not progress; success requires verified count>841 in exact arithmetic
+2026-08-21T02:53:42Z START branch=cursor/kissing-dim12-de82 workspace=/workspace/lower_bound/dim12
+2026-08-21T02:58:00Z VERIFY clebsch840 count=840 max_offdiag=1/2 field=Q(sqrt(2)) pairs=352380 ok=true (baseline, not a record)
+2026-08-21T02:59:00Z VERIFY K12_hexacode count=756 max_offdiag<=1/2 field=Q(sqrt(3)) ok=true
+2026-08-21T02:59:30Z NOTE hexacode generator initially had d_min=2; replaced by Conway–Sloane parametric form (a,b,c,a+b+c,ω²a+ωb+c,ωa+ω²b+c)
+2026-08-21T03:03:22Z K12_MINIMA verified count=756 exact_Qsqrt3 ok=True
+2026-08-21T03:05:00Z ALGEBRAIC_ADD core=840 exact_hits=0 compatible_extras=0 (wt2/3/4/5/6/8/12 equal-weight, mixed 1/sqrt2+halves, 60-block re-embeds)
+2026-08-21T03:06:00Z HOLE_SEARCH_840 best_t=0.615521 room=false (rigid 840 has no extra unit vector; deformation required)
+2026-08-21T03:06:30Z FOUR_PLUS_FOUR D4-roots+bridges: 72 only (D4 coords 1/sqrt2 violate |vi|+|vj|<=1)
+2026-08-21T03:07:00Z ADD_IN_6D no extra in a 60-block inside the l_inf<=1/2 cube; random best_mx=0.818
+2026-08-21T03:07:30Z THREE_24CELLS 8-orts+16-cube per R^4 plus 2+2 bridges: exact 648 <=1/2 (below record)
+2026-08-21T03:08:00Z LEECH_SECTIONS G24 weights ok (759 octads); typeA+B=195456; coord12=0 diagonal=0 (need type 4^2 and other 12-sets)
+2026-08-21T03:08:30Z NOTE sibling agents share the repo checkout; dim12 work is isolated under lower_bound/dim12/ on branch cursor/kissing-dim12-de82

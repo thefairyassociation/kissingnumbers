@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-lib/riesz
-lib/riesz2
-lib/fastriesz
-lib/hingepol

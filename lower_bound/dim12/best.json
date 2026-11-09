@@ -1,0 +1,15 @@
+{
+  "dimension": 12,
+  "count": 840,
+  "verified_exactly": true,
+  "field": "Q(sqrt(2))",
+  "max_off_diagonal": "1/2",
+  "path": "lower_bound/dim12/configs/clebsch840.json",
+  "method": "Leech-Sloane / Clebsch 48-system + K6 bridges (60+60+720)",
+  "beats_live_record": false,
+  "live_record": 841,
+  "note": "the live record 841 is a numerical configuration (max inner product 0.499999937751); 840 is the best exactly verified here",
+  "timestamp": "2026-08-21T23:25:25Z",
+  "tight_pairs": 34560,
+  "scale": "unit vectors"
+}
