@@ -1,0 +1,23 @@
+{
+ "n": 8,
+ "s": "1/2",
+ "roots": [
+  [
+   "-1",
+   1
+  ],
+  [
+   "-1/2",
+   2
+  ],
+  [
+   "0",
+   2
+  ],
+  [
+   "1/2",
+   1
+  ]
+ ],
+ "comment": "Levenshtein / Odlyzko-Sloane 1979: F = (t+1)(t+1/2)^2 t^2 (t-1/2), sharp for the E8 root system"
+}

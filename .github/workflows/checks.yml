@@ -76,8 +76,11 @@ jobs:
       - name: Structural audit of the published witness
         run: python3 lower_bound/lib/analyze_published_841.py
 
+      - name: Proof that the joint ZE99 half-height layer has at most 168 points
+        run: python3 lower_bound/dim13/prove_joint_layer_168.py
+
       - name: Byte-compile
-        run: python3 -m compileall -q lower_bound/lib
+        run: python3 -m compileall -q lower_bound/lib upper_bound
 
       # mis8 rewrites lower_bound/logs/mis8_n14_s1.txt as a side effect of the
       # self-check.  That is known and tolerated; anything *else* being
@@ -95,6 +98,25 @@ jobs:
 
       - name: Whitespace
         run: git diff --check
+
+  upper-bound:
+    # Exact verification of every committed upper-bound certificate.  Standard
+    # library only: the verifier shares no code with the certificate generator.
+    name: upper-bound certificates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify all LP certificates exactly
+        run: python3 upper_bound/lp/verify_certificate.py upper_bound/certificates/lp/*.json
+
+      - name: Verifier tests
+        run: python3 upper_bound/tests/test_lp_certificates.py
 
   no-blas:
     # The OpenBLAS dependency used to be a parse-time $(error), which blocked
