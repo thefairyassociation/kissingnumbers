@@ -1,0 +1,138 @@
+name: kissing checks
+
+# There is no other automated verification in this repository: the numerical
+# results depend on riesz.c behaving exactly as documented, and several of the
+# guards below exist because a regression in them was shipped once already.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: checks (${{ matrix.blas }} OpenBLAS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The Makefile prefers a system OpenBLAS via pkg-config and falls back
+        # to scipy-openblas32's prefixed symbols.  Both branches are exercised,
+        # because only one of them gets used on any given machine.
+        blas: [system, scipy]
+    env:
+      OMP_NUM_THREADS: 2
+      KISS_THREADS: 2
+      OPENBLAS_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # numpy is the only Python dependency of these checks.  (holes.py and
+      # lpbound.py need scipy, but nothing below imports them.)
+      - name: Install numpy
+        run: python3 -m pip install --upgrade pip numpy
+
+      - name: Install system OpenBLAS
+        if: matrix.blas == 'system'
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Install scipy-openblas32
+        if: matrix.blas == 'scipy'
+        run: python3 -m pip install scipy-openblas32
+
+      - name: Report which BLAS the Makefile found
+        run: make -C kissing/lib blas-check
+
+      # riesz-tools, not all: mis8/clique/... are committed binaries, and
+      # whether `make` decides to rebuild them depends on checkout mtimes.  A
+      # rebuilt binary differs byte-wise and would make the working-tree
+      # assertion below flaky.  The no-blas job builds them instead.
+      - name: Build
+        run: make -C kissing/lib riesz-tools
+
+      # The BLAS engrad cross-check against the reference loops lives here.
+      - name: Repository self-checks
+        run: bash kissing/lib/selftest.sh
+
+      # Guards the source-faithful N=841 protocol: the published schedule, the
+      # polish learning rates (which were once divided by ten twice), that the
+      # polish result actually reaches the candidate file (it once did not),
+      # the fail-closed non-finite guards, and the refusal to run search and
+      # polish in one process.
+      - name: Faithful N=841 regression suite
+        run: python3 kissing/lib/test_faithful_841.py
+
+      - name: O(4) breadth self-tests
+        run: python3 kissing/lib/test_o4_breadth.py --binary-smoke
+
+      - name: Structural audit of the published witness
+        run: python3 kissing/lib/analyze_published_841.py
+
+      - name: Byte-compile
+        run: python3 -m compileall -q kissing/lib
+
+      # mis8 rewrites kissing/logs/mis8_n14_s1.txt as a side effect of the
+      # self-check.  That is known and tolerated; anything *else* being
+      # modified means a tool started writing where it should not.
+      - name: Only the known log may be modified
+        run: |
+          unexpected=$(git status --porcelain \
+            | grep -v '^ M kissing/logs/mis8_n14_s1.txt$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "unexpected working-tree changes after the checks:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+          echo "only the known mis8 log was modified"
+
+      - name: Whitespace
+        run: git diff --check
+
+  no-blas:
+    # The OpenBLAS dependency used to be a parse-time $(error), which blocked
+    # every target -- including `clean` and the BLAS-free verification tools.
+    name: Makefile works without OpenBLAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install numpy
+        run: python3 -m pip install --upgrade pip numpy
+
+      - name: clean and verify-tools must not need BLAS
+        run: |
+          make -C kissing/lib BLAS_MISSING=1 clean
+          make -C kissing/lib BLAS_MISSING=1 verify-tools
+
+      - name: Riesz targets must fail with an actionable message
+        run: |
+          if make -C kissing/lib BLAS_MISSING=1 riesz2 2>err.txt; then
+            echo "expected the Riesz build to fail without OpenBLAS" >&2
+            exit 1
+          fi
+          cat err.txt
+          grep -q 'scipy-openblas32' err.txt
+          grep -q 'make verify-tools' err.txt
+          echo "Riesz build failed at the recipe, with the install hint"
+
+      - name: blas-check reports the missing dependency
+        run: |
+          if make -C kissing/lib BLAS_MISSING=1 blas-check; then
+            echo "blas-check should fail when OpenBLAS is absent" >&2
+            exit 1
+          fi
+          echo "blas-check correctly reports OpenBLAS as missing"
