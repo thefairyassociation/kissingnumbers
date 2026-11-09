@@ -1,0 +1,15 @@
+# One-tetrad-deletion exact search summary
+
+- Completed support orbits: **7/7**.
+- Coordinate automorphism group order: **12**.
+- Support orbit sizes: **12, 6, 6, 3, 12, 6, 6**.
+- Exact record witness found: **False**.
+- Best verified count: **1154**.
+
+- Drop 0: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 1: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 11: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 19: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 4: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 5: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
+- Drop 8: statuses ['UNKNOWN', 'INFEASIBLE']; count 1154; record False.
