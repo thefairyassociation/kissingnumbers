@@ -1,0 +1,129 @@
+{
+  "E6_Y3_partitions": {
+    "all_partitions_isometric": false,
+    "blocks_sha256": "b20e4e3cd1fdb053771288992d4e8bbf8ec2b2a211b7e8899572b0bfea789890",
+    "exact_cover_search_nodes": 54393,
+    "maximum_y3_blocks": 320,
+    "orbits": [
+      {
+        "orbit_index": 0,
+        "orbit_size": 40,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 71, 114, 133, 164, 260, 269, 303]
+      },
+      {
+        "orbit_index": 1,
+        "orbit_size": 360,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 41, 80, 134, 167, 283, 303, 318]
+      },
+      {
+        "orbit_index": 2,
+        "orbit_size": 480,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 50, 114, 156, 161, 243, 260, 288]
+      },
+      {
+        "orbit_index": 3,
+        "orbit_size": 480,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 50, 114, 156, 189, 200, 243, 260]
+      },
+      {
+        "orbit_index": 4,
+        "orbit_size": 480,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 59, 95, 152, 180, 212, 234, 303]
+      },
+      {
+        "orbit_index": 5,
+        "orbit_size": 960,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 50, 114, 156, 164, 243, 260, 269]
+      },
+      {
+        "orbit_index": 6,
+        "orbit_size": 1440,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 41, 80, 126, 175, 281, 307, 315]
+      },
+      {
+        "orbit_index": 7,
+        "orbit_size": 1440,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 41, 80, 127, 174, 281, 307, 315]
+      },
+      {
+        "orbit_index": 8,
+        "orbit_size": 1440,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 41, 80, 135, 166, 283, 303, 318]
+      },
+      {
+        "orbit_index": 9,
+        "orbit_size": 2160,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 41, 112, 135, 166, 254, 283, 303]
+      },
+      {
+        "orbit_index": 10,
+        "orbit_size": 2880,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 41, 80, 126, 175, 283, 303, 318]
+      },
+      {
+        "orbit_index": 11,
+        "orbit_size": 2880,
+        "pair_profile_sha256": "6bd1e1ed2628ccce36400ae5953a64839b460c92ef514f83c970d35557c93fbd",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 18, "-8:3,-4:18,0:36,4:24": 9, "-8:9,0:54,4:18": 1},
+        "witness_partition_block_indices": [0, 41, 80, 134, 167, 281, 307, 315]
+      },
+      {
+        "orbit_index": 12,
+        "orbit_size": 2880,
+        "pair_profile_sha256": "ecb951244671cbf72a7f6cfbc4c16a52d3be6b96ab715d5ad37455307aac3dc7",
+        "pair_profile_signature": {"-4:27,0:27,4:27": 24, "-8:9,0:54,4:18": 4},
+        "witness_partition_block_indices": [0, 41, 82, 135, 166, 283, 303, 316]
+      }
+    ],
+    "partitions_sha256": "c98b57cc042d5d287d8682306d84434c81968bc2074dc014710ea813562d6eb7",
+    "root_count": 72,
+    "root_reflection_generators": 36,
+    "weyl_orbit_count": 13,
+    "weyl_orbit_sizes": [40, 360, 480, 480, 480, 960, 1440, 1440, 1440, 2160, 2880, 2880, 2880],
+    "y3_partitions": 17920
+  },
+  "E7_X7_partitions": {
+    "all_partitions_isometric": true,
+    "blocks_sha256": "907759fd71f65fdcefcfcde66cbe9c78d6e67a6aa7786effe2dee5a802f35e9f",
+    "exact_cover_search_nodes": 6376,
+    "flagged_partition_count": 8640,
+    "flagged_partition_orbit_count": 1,
+    "flagged_partition_orbit_sizes": [8640],
+    "maximum_x7_blocks": 135,
+    "omitted_x7_choice_is_transitive": true,
+    "partitions_sha256": "848012304351d58501950d00a8d823f3ddd4ee2ae3383cbd3fe2a01f3c6959f9",
+    "root_count": 126,
+    "root_line_count": 63,
+    "root_reflection_generators": 63,
+    "weyl_orbit_count": 1,
+    "weyl_orbit_sizes": [960],
+    "witness_partition_block_indices": [0, 19, 38, 54, 74, 83, 93, 109, 123],
+    "x7_partitions": 960
+  },
+  "arithmetic": "integer only",
+  "consequence": "The E7 side of every saturated product core has one partition geometry, even after distinguishing the omitted X7, while the E6 side has exactly 13 Weyl-inequivalent partition geometries. Local X7/Y3 choices alone are therefore insufficient; only the E6 global partition orbit and cap coupling remain as discrete product-core freedom.",
+  "exact": true,
+  "generated_at": "2026-08-23T06:47:43.748023+00:00"
+}

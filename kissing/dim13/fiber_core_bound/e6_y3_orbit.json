@@ -1,0 +1,40 @@
+{
+  "arithmetic": "integer only; reflection x -> x - (x.alpha/4) alpha",
+  "consequence": "All 320 maximum nine-root Y3 subsets of E6 are isometric under exact root reflections. Changing a standalone maximum E6 fiber cannot create a new local geometry; any gain must come from globally different coupling.",
+  "distinct_root_reflections": 36,
+  "e6_root_count": 72,
+  "exact": true,
+  "generated_at": "2026-08-23T06:40:49.748017+00:00",
+  "maximum_nonpositive_subset_size": 9,
+  "maximum_sets_sha256": "b20e4e3cd1fdb053771288992d4e8bbf8ec2b2a211b7e8899572b0bfea789890",
+  "maximum_y3_count": 320,
+  "orbit_size_from_one_y3": 320,
+  "weyl_transitive_on_y3": true,
+  "witness_root_indices": [
+    0,
+    11,
+    18,
+    40,
+    45,
+    48,
+    49,
+    58,
+    61
+  ],
+  "witness_triangle_components": [
+    [0, 58, 61],
+    [11, 45, 48],
+    [18, 40, 49]
+  ],
+  "witness_vectors_scaled": [
+    [-2, 0, 0, 0, 0, 2, 0, 0],
+    [-1, -1, 1, 1, 1, -1, -1, 1],
+    [-1, 1, -1, 1, 1, -1, 1, -1],
+    [0, 0, 2, -2, 0, 0, 0, 0],
+    [0, 2, 0, 0, -2, 0, 0, 0],
+    [1, -1, -1, -1, 1, 1, 1, -1],
+    [1, -1, -1, 1, -1, 1, -1, 1],
+    [1, -1, 1, 1, -1, -1, 1, -1],
+    [1, 1, -1, -1, 1, -1, -1, 1]
+  ]
+}

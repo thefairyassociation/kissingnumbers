@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated research logs are workflow artifacts, not source-controlled results.
+kissing/dim13/**/*.log
+kissing/dim13/packingstar/workflow_output.txt

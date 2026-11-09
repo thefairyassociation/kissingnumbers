@@ -1,0 +1,72 @@
+{
+  "antipodal_pairs": 573,
+  "basis_indices": [
+    0,
+    1,
+    13,
+    14,
+    67,
+    111,
+    481,
+    489,
+    490,
+    336,
+    352,
+    326,
+    30
+  ],
+  "beats_live_record": false,
+  "count": 1146,
+  "dimension": 13,
+  "dtype": "float64",
+  "exact_config_path": "kissing/dim13/packingstar/results/configs/13D-1146-cosmatrix_exact.json",
+  "exact_gram_denominator": 4,
+  "factorization_method": "numpy int64, proven bounds first=22464, final=1168128 < 2^62",
+  "hole_search": {
+    "available": false,
+    "note": "The numerical hole search is not part of the exact certificate.",
+    "reason": "disabled for deterministic validation"
+  },
+  "leading_principal_minors": [
+    4,
+    16,
+    64,
+    256,
+    1024,
+    4096,
+    16384,
+    65536,
+    262144,
+    851968,
+    2621440,
+    7077888,
+    14155776
+  ],
+  "level_counts": {
+    "-1": 1146,
+    "-1/2": 126540,
+    "-1/4": 285792,
+    "0": 486360,
+    "1": 1146,
+    "1/2": 126540,
+    "1/4": 285792
+  },
+  "live_record": 1154,
+  "max_off_diagonal": "1/2",
+  "max_off_diagonal_pair": [
+    0,
+    2
+  ],
+  "positive_semidefinite": true,
+  "rank": 13,
+  "reconstruction_max_float_error": 0.0,
+  "shape": [
+    1146,
+    1146
+  ],
+  "source": "/tmp/packingstar/input/13D-1146-cosmatrix.npy",
+  "source_sha256": "e0c1a5be4958f7895847d352f3c71f6ea7802e4626e1864a56ebdedcfe74bc85",
+  "status": "verified_exactly",
+  "tight_pairs": 63270,
+  "unique_rows": 1146
+}
