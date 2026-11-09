@@ -134,6 +134,10 @@ def main() -> int:
         next_seed += a.workers * a.screen_batch
         with ThreadPoolExecutor(max_workers=a.workers) as ex:
             results = list(ex.map(lambda r: screen(a, roots_dir, *r), ranges))
+        if not any(results):
+            # fastriesz produced no seed lines at all: a broken build or bad arguments.
+            print("screening produced no results; aborting this shard", file=sys.stderr)
+            return 1
         new_roots = []
         for recs in results:
             for rec in recs:

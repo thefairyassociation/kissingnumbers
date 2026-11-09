@@ -51,7 +51,9 @@ jobs:
               assert arm["init"] in ("d12-841", "d12-840", "d13-1154", "d14-1932")
               assert arm["extra"] in ("file", "hypercube", "gauss")
               for k in range(int(arm["shards"])):
-                  rows.append({"arm": arm["id"], "shard": k, "n": int(arm["n"]), "N": int(arm["N"]),
+                  # GitHub expressions are case-insensitive: matrix.n and matrix.N would
+                  # be the same key, hence "dim" and "points".
+                  rows.append({"arm": arm["id"], "shard": k, "dim": int(arm["n"]), "points": int(arm["N"]),
                                "init": arm["init"], "extra": arm["extra"], "anti": int(arm["anti"]),
                                "seed_start": int(arm["seed_base"]) + 1000000 * k})
           assert 1 <= len(rows) <= 60
@@ -85,10 +87,10 @@ jobs:
       - name: Search
         run: |
           python3 lower_bound/lib/campaign.py "$RUNNER_TEMP/out" \
-            --n ${{ matrix.n }} --N ${{ matrix.N }} --init "$RUNNER_TEMP/init.txt" \
+            --n ${{ matrix.dim }} --N ${{ matrix.points }} --init "$RUNNER_TEMP/init.txt" \
             --extra ${{ matrix.extra }} --anti ${{ matrix.anti }} \
             --seed-start ${{ matrix.seed_start }} --hours ${{ needs.plan.outputs.hours }} \
-            --workers "$(nproc)"
+            --workers "$(nproc --all)"   # plain nproc obeys OMP_NUM_THREADS
       - name: Upload shard result
         if: always()
         uses: actions/upload-artifact@v4

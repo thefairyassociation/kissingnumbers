@@ -1,5 +1,5 @@
 {
-  "name": "c00-smoke",
+  "name": "c01-smoke",
   "hours": 0.12,
   "arms": [
     {"id": "d12-file", "n": 12, "N": 841,  "init": "d12-841",  "extra": "file",      "anti": 300, "shards": 1, "seed_base": 20000000},
