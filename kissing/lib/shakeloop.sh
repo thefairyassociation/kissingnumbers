@@ -3,7 +3,8 @@
 # continuation optimiser.  usage: shakeloop.sh <dim> <base floats> <N> <tag> <seed0>
 cd /home/user/unsolved
 d=$1; base=$2; N=$3; tag=$4; s0=$5
-SP=/tmp/claude-0/-home-user-unsolved/153d4bbc-6a4f-55aa-a990-7da3460d88ca/scratchpad
+SP="${KISS_SCRATCH:-${TMPDIR:-/tmp}/kissing-scratch}"
+mkdir -p "$SP"
 for i in $(seq 0 20000); do
   s=$((s0+i)); k=$(( (RANDOM % 8) + 1 ))
   python3 kissing/lib/shake2.py "$base" $k $s $SP/shake_$tag.txt >/dev/null 2>&1

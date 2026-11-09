@@ -446,13 +446,49 @@ The three things that look most worth attacking next, in order:
    root has a level below 1/2 -- the published witness proves at least one
    member of this family does.  Only after that is the dimension-13 numerical
    evidence worth anything either way.
-2. **Dimension 14 with `dim V = 6`.** 25 supports would give 1600 weight-8
-   vectors and 1964 > 1932. Structural cliques of up to 72 supports exist for
-   minimum-weight-6 codes; what collapses is the F_2 coset system. A smarter
-   joint search over (code, support family, cosets) — rather than clique-then-
-   check — is the obvious next step.
-3. **Non-global sign codes.** The whole framework here assumes every support
-   carries a coset of one global linear code `V`, which is true of Ganzhinov's
-   configuration but need not be true of an optimal one. The general condition
-   for a pair is only `U_i|_X + U_j|_X != F_2^X`; dropping the global-`V`
-   assumption enlarges the search space considerably.
+2. ~~**Dimension 14 with `dim V = 6`.**~~ **Closed — see below.** This was
+   recommended here first and it is wrong.
+3. ~~**Non-global sign codes.**~~ **Closed — see below.**
+
+### Both dimension-14 leads above are now ruled out
+
+*(`dim14/dimv6.py`, `dim14/diag_dimv6.py`, `dim14/dimv6_verdict.py`,
+`dim14/why_global_v.py`)*
+
+**`dim V = 6` caps at 9 supports, and the reason is not the F_2 system.** The
+earlier claim here — "what collapses is the F_2 coset system" — was wrong. Of the
+403 good candidates rejected after growing a family, **zero** failed on the F_2
+system (8 constrained pairs against 72 unknowns; nowhere near saturated). 362
+failed a *structural* test and 41 met a member in >= 7.
+
+The structural test is the asymmetry that makes Ganzhinov's construction work:
+**a pair at intersection `t` is automatically fine whenever `dim V < t`.** At
+`dim V = 5` the `t = 6` pairs are free and only `t = 5` needs a witness — hence
+49 supports. At `dim V = 6` the `t = 6` pairs need a witness too: some nonzero
+`a` in `V^perp` (now only dimension 8) supported inside a 6-element set. Its
+low-weight words cover roughly 70% of 6-sets and 31% of 5-sets, and *every* one
+of the `C(m,2)` pairs has to pass, so `m` collapses.
+
+Measured over **1315** sampled dimension-6 codes: best family **9 supports**
+(9 x 64 + 364 = 940, against the 25 supports needed for 1964). Selecting codes
+whose dual is rich in low-weight words does not help —
+correlation(low-weight words in `V^perp`, family size) = **0.06**. Doubling the
+sign code costs far more than a factor two in supports: 49 x 32 = 1568 beats
+9 x 64 = 576.
+
+**Per-support codes are not a real degree of freedom either.** Two sign sets
+project onto `X = S & T` as cosets `a + A` and `b + B`; disjoint cosets of
+*different* subspaces require `A + B != F_2^X`, and for `t = 6` with 32 signs
+each (so `dim A = dim B = 5` in `F_2^6`) that forces `A = B`. Checked on the
+record configuration: all **294** constrained pairs have `dim A = dim B = 5` and
+`A = B`, every time. Per-support codes could only differ by projecting to
+*smaller* subspaces — i.e. by carrying fewer signs, which loses more than it
+gains. So one global `V` is close to forced, not a restriction that was costing
+anything.
+
+**What that leaves.** Inside the norm-8 shell of Z^14 the record now looks
+closed from every side tried: the 1568 weight-8 vectors are maximal
+(exhaustive over all 768768 candidates), the 49-support Fano design admits no
+50th support over 127190 enumerated codes, `dim V = 6` caps at 9 supports, and
+per-support codes buy nothing. Beating 1932 needs a different shell or a
+genuinely different construction, not a better search inside this one.
