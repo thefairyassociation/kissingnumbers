@@ -55,6 +55,7 @@ jobs:
                   # be the same key, hence "dim" and "points".
                   rows.append({"arm": arm["id"], "shard": k, "dim": int(arm["n"]), "points": int(arm["N"]),
                                "init": arm["init"], "extra": arm["extra"], "anti": int(arm["anti"]),
+                               "screen_batch": int(arm.get("screen_batch", 10)),
                                "seed_start": int(arm["seed_base"]) + 1000000 * k})
           assert 1 <= len(rows) <= 60
           print("matrix=" + json.dumps({"include": rows}))
@@ -89,6 +90,7 @@ jobs:
           python3 lower_bound/lib/campaign.py "$RUNNER_TEMP/out" \
             --n ${{ matrix.dim }} --N ${{ matrix.points }} --init "$RUNNER_TEMP/init.txt" \
             --extra ${{ matrix.extra }} --anti ${{ matrix.anti }} \
+            --screen-batch ${{ matrix.screen_batch }} \
             --seed-start ${{ matrix.seed_start }} --hours ${{ needs.plan.outputs.hours }} \
             --workers "$(nproc --all)"   # plain nproc obeys OMP_NUM_THREADS
       - name: Upload shard result
