@@ -1,0 +1,8 @@
+{
+  "name": "c00-smoke",
+  "hours": 0.12,
+  "arms": [
+    {"id": "d12-file", "n": 12, "N": 841,  "init": "d12-841",  "extra": "file",      "anti": 300, "shards": 1, "seed_base": 20000000},
+    {"id": "d14-cube", "n": 14, "N": 1933, "init": "d14-1932", "extra": "hypercube", "anti": 600, "shards": 1, "seed_base": 40000000}
+  ]
+}

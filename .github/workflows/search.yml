@@ -1,0 +1,139 @@
+name: search campaign
+
+# Runs lower_bound/lib/campaign.py at scale on free GitHub-hosted runners.
+#
+# What to run is described by .github/search-campaign.json (name, hours per
+# shard, and a list of arms: dimension, target size, starting configuration,
+# number of parallel shards).  Pushing a change to that file starts a
+# campaign on the branch that was pushed; "Run workflow" does the same by hand.
+#
+# Each shard uploads its summary (and the coordinates of anything close to or
+# below 1/2) as an artifact.  The final job gathers every shard into
+# lower_bound/campaigns/<name>/ and commits that one directory back to the
+# branch.  A configuration only counts if certify_float.py passed it; the
+# committed summary says whether that happened.
+on:
+  push:
+    paths:
+      - .github/search-campaign.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: search-campaign-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      name: ${{ steps.plan.outputs.name }}
+      hours: ${{ steps.plan.outputs.hours }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, re
+          spec = json.load(open(".github/search-campaign.json"))
+          name = spec["name"]
+          assert re.fullmatch(r"[A-Za-z0-9._-]{1,40}", name), "campaign name must be a plain slug"
+          hours = float(spec["hours"])
+          assert 0 < hours <= 5.5, "hours per shard must fit in one GitHub job (max 5.5)"
+          rows = []
+          for arm in spec["arms"]:
+              assert re.fullmatch(r"[A-Za-z0-9._-]{1,30}", arm["id"])
+              assert arm["init"] in ("d12-841", "d12-840", "d13-1154", "d14-1932")
+              assert arm["extra"] in ("file", "hypercube", "gauss")
+              for k in range(int(arm["shards"])):
+                  rows.append({"arm": arm["id"], "shard": k, "n": int(arm["n"]), "N": int(arm["N"]),
+                               "init": arm["init"], "extra": arm["extra"], "anti": int(arm["anti"]),
+                               "seed_start": int(arm["seed_base"]) + 1000000 * k})
+          assert 1 <= len(rows) <= 60
+          print("matrix=" + json.dumps({"include": rows}))
+          print("name=" + name)
+          print("hours=" + repr(hours))
+          PY
+
+  shard:
+    needs: plan
+    name: ${{ matrix.arm }} / ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    env:
+      OPENBLAS_NUM_THREADS: 1
+      OMP_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python3 -m pip install --quiet numpy scipy scipy-openblas32
+      - name: Build
+        run: make -C lower_bound/lib fastriesz hingepol
+      - name: Starting configuration
+        run: lower_bound/lib/campaign_init.sh "${{ matrix.init }}" "$RUNNER_TEMP/init.txt"
+      - name: Search
+        run: |
+          python3 lower_bound/lib/campaign.py "$RUNNER_TEMP/out" \
+            --n ${{ matrix.n }} --N ${{ matrix.N }} --init "$RUNNER_TEMP/init.txt" \
+            --extra ${{ matrix.extra }} --anti ${{ matrix.anti }} \
+            --seed-start ${{ matrix.seed_start }} --hours ${{ needs.plan.outputs.hours }} \
+            --workers "$(nproc)"
+      - name: Upload shard result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.arm }}-${{ matrix.shard }}
+          path: |
+            ${{ runner.temp }}/out/summary.json
+            ${{ runner.temp }}/out/kept
+          if-no-files-found: warn
+          retention-days: 30
+
+  collect:
+    needs: [plan, shard]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet numpy
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/shards
+      - name: Merge shard summaries
+        run: |
+          python3 lower_bound/lib/campaign_collect.py "$RUNNER_TEMP/shards" \
+            "lower_bound/campaigns/${{ needs.plan.outputs.name }}" \
+            --spec .github/search-campaign.json --run-url \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Commit the campaign record
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "lower_bound/campaigns/${{ needs.plan.outputs.name }}"
+          if git diff --cached --quiet; then echo 'nothing to record'; exit 0; fi
+          git commit -m "Record search campaign ${{ needs.plan.outputs.name }} [skip ci]"
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin "${{ github.ref_name }}" && git push origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $((attempt * 5))
+          done
+          exit 1
