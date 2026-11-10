@@ -108,11 +108,15 @@ will appear in `lower_bound/campaigns/c03-tail/` when it finishes.
   standard-library-only program verifies with no floating point at all. They
   include the two famous sharp cases: exactly **240** in dimension 8 and
   exactly **196560** in dimension 24.
-* **An exact certificate that k(3) ≤ 12** from the stronger "three-point"
-  semidefinite method. Linear programming cannot do this (it stops at 13).
-  The pipeline that produced it — solve numerically, round to fractions,
+* **Exact certificates that k(3) ≤ 12 and k(4) ≤ 24** from the stronger
+  "three-point" semidefinite method. Linear programming cannot do either (it
+  stops at 13 and 25). Together with the known 12- and 24-point
+  configurations these are complete machine-checked determinations of the
+  kissing number in dimensions 3 and 4 — the second is Musin's 2008 theorem —
+  resting on two classical positivity theorems that the verifier states.
+  The pipeline that produced them — solve numerically, round to fractions,
   repair the identities exactly, verify independently — is the same one the
-  published records in higher dimensions rest on, at toy scale.
+  published records in higher dimensions rest on, at small scale.
 
 All of these are known theorems. Nothing here lowers a record. The published
 upper bounds in dimensions 9–23 come from the same three-point method at far

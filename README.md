@@ -25,6 +25,7 @@ Records are from [Henry Cohn's table](https://cohn.mit.edu/kissing-numbers), fet
 | dim | best known lower | best known upper | verified in this repository |
 | ---: | ---: | ---: | --- |
 | 3 | 12 | 12 | upper bound 12, exact three-point (semidefinite) certificate |
+| 4 | 24 | 24 | upper bound 24, exact three-point (semidefinite) certificate |
 | 8 | 240 | 240 | upper bound 240, exact LP certificate |
 | 12 | 841 | 1355 | lower 841 (the published configuration, certified exactly here); upper 1416 (LP) |
 | 13 | 1154 | 2064 | lower 1154 (reproduction, exact); upper 2233 (LP) |
@@ -33,7 +34,7 @@ Records are from [Henry Cohn's table](https://cohn.mit.edu/kissing-numbers), fet
 
 Every bound in the right-hand column is a known result re-verified here, not
 a new one. The upper bounds are the classical linear-programming bounds
-(plus one semidefinite certificate in dimension 3); in dimensions 12–14 they
+(plus semidefinite certificates in dimensions 3 and 4); in dimensions 12–14 they
 are weaker than the published semidefinite records. The full table is in
 [`upper_bound/README.md`](upper_bound/README.md).
 

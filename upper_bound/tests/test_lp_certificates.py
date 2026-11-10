@@ -84,6 +84,12 @@ class Certificates(unittest.TestCase):
         self.assertEqual(r8["bound_exact"], "240")
         self.assertEqual(r24["bound_exact"], "196560")
 
+    def test_other_angles(self):
+        for name, n, bound, known in (("code_n04_s1-3.json", 4, 15, 8), ("code_n12_s1-3.json", 12, 257, 168)):
+            r = vc.verify(json.loads((CERTS / name).read_text()))
+            self.assertEqual((r["n"], r["s"], r["bound"]), (n, "1/3", bound))
+            self.assertGreaterEqual(r["bound"], known)      # a code of this size exists
+
     def test_rejects_negative_coefficient(self):
         cert = json.loads((CERTS / "delsarte_n05.json").read_text())
         cert["f"][3] = "-1/1000"

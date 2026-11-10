@@ -5,8 +5,9 @@ touch a central one. It is separate from [`../lower_bound/`](../lower_bound/READ
 which builds configurations, and shares no code with it.
 
 **Nothing here improves a known upper bound.** What exists is a verified base:
-the classical linear-programming bounds in dimensions 3–24 and one
-semidefinite certificate, each as a file that a short exact program checks.
+the classical linear-programming bounds in dimensions 3–24 and two
+semidefinite certificates (dimensions 3 and 4), each as a file that a short
+exact program checks.
 The published records come from much larger semidefinite programs; the
 section "What it would take" says how far away those are.
 
@@ -25,7 +26,7 @@ python3 upper_bound/lp/verify_certificate.py upper_bound/certificates/lp/*.json
 python3 upper_bound/sdp/verify_certificate.py upper_bound/certificates/sdp/*.json
 ```
 
-Both finish in about a second.
+The first takes about a second, the second about ten.
 
 ## Results
 
@@ -36,7 +37,7 @@ this repository.
 | dim | best known lower | best known upper | verified here | method here |
 | ---: | ---: | ---: | ---: | --- |
 | 3 | 12 | 12 | **12** | three-point SDP, degree 5 |
-| 4 | 24 | 24 | 25 | LP |
+| 4 | 24 | 24 | **24** | three-point SDP, degree 7 |
 | 5 | 40 | 43 | 46 | LP |
 | 6 | 72 | 77 | 82 | LP |
 | 7 | 126 | 132 | 140 | LP |
@@ -58,9 +59,16 @@ this repository.
 | 23 | 93150 | 122351 | 128095 | LP |
 | 24 | 196560 | 196560 | **196560** | LP, exact root-form certificate |
 
-Bold entries match the true kissing number. All three are classical theorems
-(Schütte–van der Waerden 1953; Levenshtein and Odlyzko–Sloane 1979); the LP
-column reproduces Odlyzko and Sloane's 1979 table. None of it is new.
+Bold entries match the true kissing number: in these four dimensions the
+certificate here, together with the known configuration, pins the kissing
+number down exactly. All four are known theorems (Schütte–van der Waerden
+1953 for dimension 3; Musin 2008 for dimension 4, with the semidefinite proof
+due to Bachoc and Vallentin; Levenshtein and Odlyzko–Sloane 1979 for 8 and
+24), and the LP column reproduces Odlyzko and Sloane's 1979 table. None of it
+is new. What the two semidefinite certificates add is that the proof is a
+file anyone can check in seconds with a short program that uses only exact
+integer arithmetic, subject to the two classical positivity theorems the
+verifier's header names.
 
 ## The two methods
 
@@ -85,11 +93,25 @@ rational roots instead, and the verifier checks its sign between them.
 python3 upper_bound/lp/delsarte.py --all
 ```
 
+The same verifier works for any angle. Two certificates for inner products at
+most 1/3 are included because the dimension-13 construction is built from
+such codes (its half-height layers are 1/3-codes in R¹², see
+[`../lower_bound/dim13/README.md`](../lower_bound/dim13/README.md)):
+
+| file | statement |
+| --- | --- |
+| `certificates/lp/code_n12_s1-3.json` | at most **257** unit vectors in R¹² with pairwise inner products ≤ 1/3 (the record construction uses 168) |
+| `certificates/lp/code_n04_s1-3.json` | at most **15** such vectors in R⁴ |
+
+```bash
+python3 upper_bound/lp/delsarte.py --n 12 --s 1/3 --degree 24 --out upper_bound/certificates/lp/code_n12_s1-3.json
+```
+
 ### Three-point semidefinite programming (Bachoc–Vallentin) — `sdp/`
 
 The LP only uses pairs of points. The three-point bound also uses triples,
-and is strictly stronger: in dimension 3 the LP cannot do better than 13,
-while the three-point bound gives 12.
+and is strictly stronger: the LP cannot do better than 13 in dimension 3 or
+25 in dimension 4, while the three-point bound gives 12 and 24.
 
 A certificate consists of positive semidefinite matrices together with two
 polynomial identities that express "this polynomial is nonnegative on that
@@ -119,7 +141,21 @@ higher-degree values as they must. At low degree the three-point bound can
 even be *worse* than a high-degree LP bound, as in dimension 4 at degree 5.
 In these runs degree 7 is the first at which dimension 4 drops below 25; it needed
 the first-order solver (`--solver SCS`), because the interior-point solver
-ran out of memory on the unreduced 120×120 block.
+ran out of memory on the unreduced 120×120 block. The two certificates were
+produced with
+
+```bash
+python3 upper_bound/sdp/make_certificate.py --n 3 --degree 5 --target 12.95 \
+    --out upper_bound/certificates/sdp/three_point_n03.json
+```
+
+```bash
+python3 upper_bound/sdp/make_certificate.py --n 4 --degree 7 --target 24.9 --solver SCS \
+    --out upper_bound/certificates/sdp/three_point_n04.json
+```
+
+(ten seconds and about half an hour). The second file is 504 KiB: seven
+positive definite matrices up to 120×120 with fifteen-digit denominators.
 
 ## What it would take to go further
 
@@ -134,8 +170,11 @@ are the same ones at toy scale. In order:
    degree 7 the unreduced model needs a 120×120 block and exhausted this
    machine's memory inside the modelling layer. Reducing by the symmetric
    group cuts the blocks roughly sixfold and is what makes degree 10+
-   feasible. First target: an exact certificate for `k(4) ≤ 24` (needs
-   degree ≥ 7).
+   feasible. Degree 7 was still reachable without it (that is the
+   dimension-4 certificate). Beyond that the published table is the guide: in
+   dimension 5 the three-point bound first drops below 45 at degree 14, and
+   in dimension 6 it is 78.58 at degree 11 — and the current records there
+   (43 and 77) come from stronger methods still.
 2. **A better polynomial basis.** Monomials are badly conditioned beyond
    degree ~10; the literature uses orthogonal or sampled bases.
 3. **A high-precision solver.** Double precision is enough to round a

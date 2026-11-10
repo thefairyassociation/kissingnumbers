@@ -68,6 +68,10 @@ class Certificate(unittest.TestCase):
         r = vc.verify(self.cert)
         self.assertEqual((r["n"], r["bound"]), (3, 12))
 
+    def test_dimension_four(self):
+        r = vc.verify(json.loads((CERT.parent / "three_point_n04.json").read_text()))
+        self.assertEqual((r["n"], r["degree"], r["bound"]), (4, 7, 24))
+
     def _rejected(self, mutate):
         c = copy.deepcopy(self.cert)
         mutate(c)
