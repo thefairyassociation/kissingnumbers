@@ -1,4 +1,9 @@
-# Kissing numbers in dimensions 12, 13, 14
+# Lower bounds: kissing configurations in dimensions 12, 13, 14
+
+*This is the construction side of the repository. Upper bounds are in
+[`../upper_bound/`](../upper_bound/README.md); the short plain-English status
+of both is [`../STATUS.md`](../STATUS.md); per-dimension indexes are in
+[`dim13/README.md`](dim13/README.md), `dim12/README.md` and `dim14/README.md`.*
 
 **Goal.** Beat a known kissing-number lower bound in dimension 13 (priority), 12 or 14:
 an explicit set of unit vectors in R^n with all pairwise inner products <= 1/2,
@@ -13,7 +18,7 @@ constructions that were built and checked, and the families that were ruled out
 Fetched 2026-08-21 from [Henry Cohn's table](https://cohn.mit.edu/kissing-numbers)
 and cross-checked against the MIT DSpace copy
 ([hdl.handle.net/1721.1/153312](https://hdl.handle.net/1721.1/153312), last
-compiled June 2026).
+compiled June 2026). Re-checked 2026-11-09: all three rows are unchanged.
 
 | dim | lower | upper | lower-bound source |
 | --- | --- | --- | --- |
@@ -331,6 +336,10 @@ optimiser's own claim.
 | 1 | ZE99 exact reproduction (dim 13) | baseline 1154, re-verified in Q(sqrt 3) |
 | 2 | Adding a point to ZE99 | impossible: hole-search max norm 0.9014 |
 | 3 | Enlarging the 1/3-code layer B | impossible with A fixed (0.7232 / 0.8327); 169-point 1/3-codes in R^12 not found numerically |
+| 3b | A 169-point layer drawn from the 4248 primitive directions of magnitude <= 2 compatible with the tetrads | **proved impossible**: the maximum is exactly 168 (`dim13/prove_joint_layer_168.py`; the CP-SAT search for it had timed out) |
+| 3c | A 25th "auxiliary" (irrational) direction per layer | exhaustive among ternary and magnitude-<=2 directions: exactly 24 exist; the continuous search (two seeds, 44 and 46 runs before the session restarted, 2026-11-09) found 24 again among the sampled polytope vertices and got no closer to 25 than a constraint violation of 0.204 |
+| 3d | Delete one tetrad support and fit 177 per layer | **open**: all seven orbit representatives timed out (`UNKNOWN`) |
+| 3e | Steiner-switch of the diamonds plus one integer vector | exhaustive over the 8192-vector shell: none |
 | 4 | Enlarging A with B fixed | tetrads are `A(12,4,4)`-optimal; no vector of the region admits a 52nd 4-subset, and triples/5-sets/6-sets all violate `sum_{i in S}|b_i| <= 2/sqrt3` |
 | 5 | Norm-8 shell of Z^13 (D-roots + weight-8) | ruled out, see section 3; ceiling ~984, best built 760 |
 | 6 | Generic max-independent-set on all 329472 weight-8 vectors of Z^13 | local search reaches 404 (+312 = 716); far below the structured 984 |
@@ -340,18 +349,21 @@ optimiser's own claim.
 | 10 | dim-14 global-code search over minimum-weight-6 codes V | structural cliques up to 72 supports, but F_2 coset consistency collapses to 11-13 |
 | 10b | dim-14 Fano-design code enumeration (836 admissible V) | none admits a 50th support |
 | 11 | Numerical continuation from ZE99 + 1 point, and remove-k/add-(k+1) shaking | ongoing; no feasible 1155 found |
+| 11b | PackingStar's two 1146-point configurations (dim 13) | reconstructed and certified exactly; 1146 < 1154, and their E6 x E7 fibre core is capped at 1008 |
 | 12 | Highly symmetric (group-orbit) configurations in R^13 from PSL(2,13) / PGL(2,13) on the 13-dimensional standard representation | implemented (`dim13/v2/orbits.py`); orbit optimisation did not reach max cos <= 1/2 |
 
 ## Running the checks
 
-`.github/workflows/kissing-checks.yml` runs these on every push and pull
-request; they take about two minutes.  Locally, from the repository root:
+`.github/workflows/checks.yml` runs these on every push to `main` and on every
+pull request; they take a few minutes.  Locally, from the repository root:
 
 ```bash
 python3 -m pip install numpy scipy-openblas32   # or a system OpenBLAS
-make -C lower_bound/lib riesz-tools
+make -C lower_bound/lib all
 
 bash lower_bound/lib/selftest.sh                          # BLAS engrad vs reference loops
+python3 lower_bound/lib/test_fast_tools.py                # fast engine, hinge polish, float certifier
+python3 lower_bound/dim13/prove_joint_layer_168.py        # the 168-point layer proof
 python3 lower_bound/lib/test_faithful_841.py              # source-faithful N=841 protocol
 python3 lower_bound/lib/test_o4_breadth.py --binary-smoke # O(4) breadth seeds
 python3 lower_bound/lib/analyze_published_841.py          # structural audit of the witness
@@ -375,7 +387,8 @@ Two things to know when running locally:
   a clean tree comes back dirty.  Restore it with
   `git checkout -- lower_bound/logs/mis8_n14_s1.txt`.  CI asserts that this is the
   *only* file the checks modify.
-* `riesz` and `riesz2` are build products, not committed binaries.
+* Every C tool is a build product; none is committed. `make -C lower_bound/lib all`
+  builds them, and `make clean` removes them.
 
 ## Code
 
@@ -413,23 +426,32 @@ Benchmarks that pin the machinery down: `mis8` loads Ganzhinov's 1568 with zero
 violations; `gcode` rebuilds a valid 1932 from `V` + supports + solved cosets;
 `clique` returns exactly 49 for the dim-14 {4,6} support design and 21 for dim 13.
 
-## Still running when this was written
+## Search campaigns
 
-*(Historical, 2026-08-22: none of these processes survive a container restart.
-The 2026-10-02 session ran its searches in scratch space and recorded the
-outcomes in `docs/CALIBRATION_optimizer.md` and `logs/progress.log`.)*
+Long numerical searches no longer run as background loops in a session (they
+do not survive a container restart). They run as *campaigns*:
 
-Four searches are left going, all of which write to `logs/` and check every
-candidate through the exact verifier before claiming anything:
+* `lib/campaign.py` is one time-budgeted shard: screen fresh seeds through the
+  first exponent stage, keep the ones whose core re-crystallises, branch them
+  with `branch_search.py`, minimax-polish, and hand anything below 1/2 to the
+  exact certifier;
+* `.github/workflows/search.yml` runs many shards in parallel on the free
+  GitHub-hosted runners. What to run is described by
+  `.github/search-campaign.json`; pushing a change to that file starts a
+  campaign, and its last job commits the result to `campaigns/<name>/`;
+* `lib/campaign_collect.py` merges the shards. It recomputes every kept
+  configuration and re-runs the exact certifier itself, so a "hit" in a
+  campaign record means the certifier passed, not that an optimiser said so.
 
-* `lib/shakeloop.sh` — dim-13 shake-and-relax from ZE99 (penalty continuation);
-* `lib/rieszloop.sh` — the same with Riesz-energy continuation;
-* `lib/run_fano.sh` — dim-14 enumeration of admissible global codes for the
-  Fano-product design (**127190** codes enumerated, **10978** of them giving a
-  consistent coset system, **0** extensions);
-* `lib/calib2.sh` — the dim-12 841 calibration with the line-search optimiser.
+To run one shard locally:
 
-A success would appear as a `logs/HIT_*.txt` file; none has been written.
+```bash
+lower_bound/lib/campaign_init.sh d12-841 /tmp/init.txt
+python3 lower_bound/lib/campaign.py /tmp/out --n 12 --N 841 --init /tmp/init.txt \
+    --seed-start 1 --hours 0.2 --workers 4
+```
+
+Records of finished campaigns are in [`campaigns/`](campaigns/).
 
 ## If someone picks this up
 
