@@ -66,7 +66,10 @@ def interior_solution(n: int, d: int, s: float, target: float, solver: str, verb
     cons = [-(lhs3 + b[1, 1] * e0) == rhs3, -u0 - p == rhs1,
             1 + cp.sum(a) + b[0, 0] + cp.sum(F[0]) <= target]
     prob = cp.Problem(cp.Maximize(t), cons)
-    prob.solve(solver=solver, verbose=verbose)
+    # SCS (first order) needs far less memory than an interior-point method on the
+    # larger blocks, at the price of accuracy: ask for tight tolerances.
+    opts = dict(eps_abs=1e-9, eps_rel=1e-9, max_iters=400000) if solver == "SCS" else {}
+    prob.solve(solver=solver, verbose=verbose, **opts)
     if t.value is None or t.value <= 0:
         raise RuntimeError(f"no interior solution at target {target} (status {prob.status}, t={t.value})")
     val = lambda e: np.array(e.value, dtype=float)

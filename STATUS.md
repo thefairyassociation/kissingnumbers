@@ -1,131 +1,192 @@
 # Where this project stands (plain English)
 
-*Last updated 2026-10-02.  The detailed technical report is
-[`lower_bound/README.md`](lower_bound/README.md); this page is the short version.*
+*Last updated 2026-11-10. Technical detail: [`lower_bound/README.md`](lower_bound/README.md)
+and [`upper_bound/README.md`](upper_bound/README.md). What happened to the old
+branches and pull requests: [`docs/HISTORY.md`](docs/HISTORY.md).*
 
-## What the project is trying to do
+## The problem
 
 The **kissing number** in dimension *n* is the largest number of unit spheres
-that can all touch one central unit sphere without overlapping.  Equivalently:
-the most unit vectors you can place in R^n with every pairwise angle at least
-60 degrees (every inner product at most 1/2).  Nobody knows the exact answer in
-dimensions 12, 13 or 14 -- only a range.  The repo tries to **raise the lower
-end of the range**: find an explicit configuration with more points than the
-current record, and *prove* it in exact arithmetic.
+that can all touch one central unit sphere without overlapping. Equivalently:
+the most unit vectors in Rⁿ with every pairwise inner product at most 1/2.
+The exact answer is known only in dimensions 1, 2, 3, 4, 8 and 24. In every
+other dimension there is a range: someone has *built* this many, and someone
+has *proved* you cannot have more than that many.
 
-| dim | best known (record) | upper bound | best this repo has verified exactly |
-| --- | --- | --- | --- |
-| 12 | 841 (Takhanov–Assylbekov–Yun 2026) | 1355 | **841** (their configuration, certified exactly here — see below) |
-| 13 | 1154 (Zinoviev–Ericson 1999) | 2064 | 1154 (reproduction) |
-| 14 | 1932 (Ganzhinov 2025) | 3174 | 1932 (reproduction) |
+The repository attacks both ends, in two separate directories:
 
-**No record has been beaten.**  That is the honest headline, and it is
-unchanged by the latest session.
+* `lower_bound/` — build a configuration with more spheres than the record;
+* `upper_bound/` — prove a smaller ceiling than the record.
 
-## The two kinds of work in the repo
+| dim | record lower | record upper | best verified here (lower / upper) |
+| ---: | ---: | ---: | --- |
+| 12 | 841 | 1355 | 841 (the published one, certified exactly) / 1416 |
+| 13 | 1154 | 2064 | 1154 (reproduction) / 2233 |
+| 14 | 1932 | 3174 | 1932 (reproduction) / 3492 |
 
-1. **Structural / exact work (solid).**  The existing record configurations in
-   dimensions 13 and 14 were rebuilt, decoded and shown to be "stuck": no point
-   can be added and no point can move on its own.  Several natural families of
-   constructions were ruled out with proofs or exhaustive searches.  This part
-   is finished and reliable (`lower_bound/README.md`, sections 1–3).
+**No record has been beaten, in either direction. The problem is not
+solved.** That is the honest headline. What follows is what was actually
+gained.
 
-2. **Numerical search (the open front).**  Optimise point positions on the
-   sphere and hope to squeeze in one more point.  The catch: the repo's
-   optimiser had never been shown to work.  The test is dimension 12 with 841
-   points, where a solution is *known* to exist.  Until the optimiser can
-   rediscover a sub-1/2 configuration there, its failures in dimension 13 mean
-   nothing.  That test is called "the calibration" throughout the repo.
+## What changed in the 2026-11-09/10 session
 
-## What changed in the 2026-10-02 session
+### 1. The repository is one tree again
 
-* **The published 841 is now certified exactly.**  Any float configuration
-  whose largest inner product is *strictly* below 1/2 can be rounded to
-  integers and checked with exact integer arithmetic.  No algebra needed.  The
-  authors' 841 passes with every cosine at most 1/2 − 6×10⁻⁸.
-  Tool: `lower_bound/lib/certify_float.py`; certificate:
-  `lower_bound/dim12/configs/takhanov841_certified.json`.  This also means a
-  future numerical hit in dimension 13 would be immediately provable.
-* **A search engine about 17× faster per CPU core** (`lower_bound/lib/fastriesz.c`).
-  Same mathematics as the old optimiser, checked against an independent
-  reference to 1e-12.
-* **A feasibility test and a basin-bottom test.**  `hingepol` decides whether a
-  configuration can be pushed to max inner product ≤ 1/2 without leaving its
-  basin; `minimax_polish.py` finds how low its basin goes.
-* **Why the calibration kept failing, now understood much better.**
-  Fingerprinting configurations (how many inner products stay at the 840's
-  exact values, how many antipodal pairs) shows:
-  * the authors' own schedule, run on CPU, melts the 840 core and always ends
-    near **0.534** — the wrong family;
-  * starting gently keeps the core rigid and ends near **0.504** — also wrong
-    (uniformly strained);
-  * the rare "strong basin" the old code found once in 48 tries has the
-    **same fingerprint as the published 841** — the right family.
-* **The very first stage is a coin flip that decides the family.**  In the
-  first exponent stage the 840 core either melts into a disordered state or
-  re-crystallises into a new structure with *more* antipodal pairs than it
-  started with; only the second kind leads to the published 841's family.
-  Counting antipodal pairs tells which after 6 seconds (the max inner product
-  cannot).  A smaller random kick at the start makes the good outcome several
-  times more likely, so good starting points went from about 25 CPU-minutes
-  each to about one.
-* **Branching search** (`lower_bound/lib/branch_search.py`): re-running a re-crystallised
-  start from an early checkpoint with small perturbations stays in the right
-  family; finals land on a few discrete levels per start.  Each good result is
-  then pushed to the bottom of its basin by `minimax_polish.py`.
+The work had been spread over 17 side branches and 7 open pull requests, most of it
+never merged; `main` held the first two days only. Everything is now merged
+into a single branch with the full history of each, split into
+`lower_bound/` and `upper_bound/`. Stray output files, committed binaries, a
+broken session hook and thirteen single-use workflow files are gone. Nothing
+was deleted on GitHub: `docs/HISTORY.md` lists every branch and PR, what it
+contained, and why it is now safe to close.
 
-  | | best max inner product for 841 points in R^12 (need < 0.5) |
-  | --- | --- |
-  | old optimiser, best ever recorded | 0.500477 |
-  | old optimiser, rerun this session | 0.500245 |
-  | **new pipeline** | **0.5001014** |
+### 2. Lower bound: one open question closed by proof
 
-  Still above 0.5, so the calibration is **still not passed** — but the gap
-  shrank by about 80%.  In the final run 28 good starts (from 550 tries)
-  were branched 92 times: several *independent* starts land on the same floor,
-  about **0.50010**, within a few tries each.  So this family has a common
-  "typical" way of fitting the extra point that tops out just above 1/2, and
-  the published 841 must use a rarer one.  That is now the precise open
-  question.  The best result reproduces bit-for-bit from the commands in
-  `lower_bound/docs/CALIBRATION_optimizer.md`.
-* **Dimension 13 with 1155 points** (the actual target): the new engine
-  reaches **0.506587** (previous best here 0.5088), but that is a uniformly
-  strained copy of the 1154 record, the dimension-13 analogue of the dead-end
-  0.504 family above.  Unlike dimension 12, the 1154 record melts in the
-  first stage every single time and never re-crystallises, so the trick does
-  not transfer directly.  No evidence either way about whether 1155 exists.
+Dimension 13's record (1154) is built from layers; two of them have 168 points
+each. An earlier agent set up a search for a 169-point layer inside a natural
+finite family of 4248 candidate directions — one more point there would have
+given 1155 and a new record. The search ran out of time, twice, without an
+answer.
+
+It turns out no search is needed. A short argument, checked by a script in
+exact arithmetic in about a second, proves **the maximum is exactly 168**
+(`lower_bound/dim13/prove_joint_layer_168.py`). That route to 1155 is closed
+for good, rather than left as "timed out".
+
+### 3. Lower bound: the numerical search now runs at a hundred times the scale
+
+The main open front is numerical: start from a record configuration plus one
+extra point and let an optimiser try to make room. The test case is dimension
+12 with 841 points, where a solution is *known* to exist; until the pipeline
+can rediscover one there ("the calibration"), its failures in dimension 13
+mean nothing. The October session got to 0.5001014 (needs to be below 0.5)
+using about 2 CPU-hours.
+
+This session wrapped that pipeline into a single driver and one reusable
+GitHub Actions workflow, which runs it on 20 free machines in parallel and
+commits a verified summary back to the repository.
+
+The first full-scale run (`lower_bound/campaigns/c02-scale/`, 340 CPU-hours):
+
+| run | starts tried | usable starts | best max inner product (need < 0.5) |
+| --- | ---: | ---: | ---: |
+| October session | 550 | 28 | 0.5001014 |
+| campaign, same recipe | 28,440 | 1,200 | 0.5000897 |
+| campaign, extra point placed at random | 10,480 | 358 | **0.5000060** |
+
+What that says:
+
+* **The calibration is still not passed.** Nothing went below 1/2, so nothing
+  was certified.
+* The "floor" near 0.5001 that October's 28 starts suggested is real: almost
+  every one of 1,558 starts ends there.
+* But the floor has a tail. One start came **16 times closer** than anything
+  before (0.5000060; its basin bottoms out at 0.5000059 after local
+  polishing and re-branching, so that particular one is not a solution).
+  The published 841 sits at 0.49999994. Rare starts do better, which is what
+  one would expect if the published configuration is a rare one, and it means
+  more starts of the right kind are worth running rather than more tuning.
+* Placing the extra point at random each time finds these rarer outcomes;
+  the fixed placement did not in three times as many starts.
+* Dimension 14 (first numerical attempt here at 1933 points): the record
+  configuration survives the first stage intact, but 296 full runs all end
+  near 0.519. Not close.
+* Dimension 13 did not run in that campaign (a missing dependency in the
+  workflow, since fixed).
+
+A second campaign, `c03-tail`, was started on 2026-11-10 with every dimension-12
+shard on the random-placement recipe, an extra step that re-branches around any
+start that lands below 0.50004, and the dimension-13 arm repaired. Its record
+will appear in `lower_bound/campaigns/c03-tail/` when it finishes.
+
+### 4. Upper bound: a new, separate track with machine-checked proofs
+
+`upper_bound/` did not exist before. It now contains:
+
+* **Exact certificates for the classical linear-programming bounds in
+  dimensions 3 to 24**, each a small file of fractions that a
+  standard-library-only program verifies with no floating point at all. They
+  include the two famous sharp cases: exactly **240** in dimension 8 and
+  exactly **196560** in dimension 24.
+* **An exact certificate that k(3) ≤ 12** from the stronger "three-point"
+  semidefinite method. Linear programming cannot do this (it stops at 13).
+  The pipeline that produced it — solve numerically, round to fractions,
+  repair the identities exactly, verify independently — is the same one the
+  published records in higher dimensions rest on, at toy scale.
+
+All of these are known theorems. Nothing here lowers a record. The published
+upper bounds in dimensions 9–23 come from the same three-point method at far
+higher degree; `upper_bound/README.md` lists what is missing to get there
+(symmetry reduction first).
+
+## What is solid and what is not
+
+* **Solid:** the exact reproductions of the three record configurations; the
+  exact certificate of the published 841; the structural results in
+  `lower_bound/README.md` (the 1154 and the 1932 cannot be extended by one
+  point, cannot be improved inside their own frameworks, and so on); the new
+  168 proof; every upper-bound certificate.
+* **Not evidence either way:** every "the optimiser did not find it" result,
+  in any dimension, until the dimension-12 calibration passes.
+* **Timed out, not excluded:** the one-tetrad-deletion searches in dimension
+  13 (`lower_bound/dim13/README.md`).
 
 ## How to check things yourself
 
 ```bash
 python3 -m pip install numpy scipy scipy-openblas32 sympy
-make -C lower_bound/lib riesz-tools verify-tools
-bash lower_bound/lib/selftest.sh                      # old self-checks
-python3 lower_bound/lib/test_fast_tools.py            # new tools
+```
+
+```bash
+make -C lower_bound/lib all
+```
+
+```bash
+python3 lower_bound/lib/verify_exact.py lower_bound/dim13/configs/ze99_1154_exact.json
+```
+
+```bash
 python3 lower_bound/lib/certify_float.py lower_bound/lib/testdata/authors_841_coordinates.txt
+```
+
+```bash
+python3 lower_bound/dim13/prove_joint_layer_168.py
+```
+
+```bash
+python3 upper_bound/lp/verify_certificate.py upper_bound/certificates/lp/*.json
+```
+
+```bash
+python3 upper_bound/sdp/verify_certificate.py upper_bound/certificates/sdp/*.json
 ```
 
 ## What to do next
 
-1. **Find the rarer defect.**  Every good start tried so far tops out at
-   about 0.50010.  Two ways forward: (a) far more starts — the pipeline is
-   ready and each good start now costs about a CPU-minute to find, so a
-   long run (or a GPU port of `fastriesz`) is straightforward; (b) compare
-   the 0.50010 configurations with the published 841 point by point to see
-   what the extra point's neighbourhood looks like in each, and seed that
-   structure directly.
-2. Once the calibration passes, run the identical pipeline on dimension 13
-   with 1155 points.  Note that dimension 13 behaves differently: its record
-   configuration never re-crystallises in the first stage (0 of 80 tries), so
-   the dimension-12 trick needs adapting there.
-3. The combinatorial ideas for dimension 14 listed at the end of
-   `lower_bound/README.md` are untouched and independent of all of the above.
+1. **Read campaign `c03-tail`.** If it certifies a configuration below 1/2 in
+   dimension 12, the calibration is passed and the same pipeline should be
+   pointed at dimension 13 at full scale. If not, compare how many starts fall
+   in the tail with c02 (1 in 358) to judge whether a tenfold larger run is
+   worthwhile.
+2. **Settle the tetrad-deletion question in dimension 13 by argument, not by
+   search.** It is the last "timed out" entry in `lower_bound/dim13/README.md`.
+   The 168 proof shows the style: bound the sign-vector code by counting the
+   subcubes each extra direction forbids. The deletion family has six more
+   direction types, so the case analysis is longer, but it is the same game.
+3. **Upper bound: divide out the symmetry in the three-point program.** That is
+   what stands between the current code and higher degrees; see "What it
+   would take" in `upper_bound/README.md`.
+4. **On GitHub (owner's call):** merge the consolidated branch into `main`,
+   then close PRs #4–#10 and delete the old branches. `docs/HISTORY.md`
+   explains why that loses nothing.
 
-## Housekeeping notes
+## Housekeeping
 
-* The files `1.out` … `7.out`, `riesz_1.out`, `riesz_5.out` at the top level
-  are old optimiser outputs committed by earlier sessions; they are kept
-  as-is (nothing depends on them).
-* Compiled binaries are build products and are git-ignored; `make` rebuilds
-  them.  Never compile the optimisers with `-ffast-math` (see
-  `lower_bound/docs/HANDOFF_optimizer.md`, trap 1).
+* Compiled tools are build products and are git-ignored; `make` rebuilds
+  them. Never compile the optimisers with `-ffast-math`
+  (`lower_bound/docs/HANDOFF_optimizer.md`, trap 1).
+* Long searches write to `lower_bound/runs/` (git-ignored) or run as
+  campaigns; only summaries and certified results are committed.
+* To start a campaign, edit `.github/search-campaign.json` and push. Hosted
+  runners are free for a public repository; a campaign of 20 five-hour shards
+  uses about 100 runner-hours.

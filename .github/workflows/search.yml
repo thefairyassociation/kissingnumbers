@@ -80,7 +80,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: python3 -m pip install --quiet numpy scipy scipy-openblas32
+        run: python3 -m pip install --quiet numpy scipy scipy-openblas32 sympy
       - name: Build
         run: make -C lower_bound/lib fastriesz hingepol
       - name: Starting configuration

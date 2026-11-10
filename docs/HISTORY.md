@@ -1,6 +1,6 @@
 # Where the old branches and pull requests went
 
-Until 2026-11-09 the work in this repository was spread over 18 branches and
+Until 2026-11-09 the work in this repository was spread over 17 side branches and
 7 open pull requests, written by several different agents between August and
 October 2026, most of it never merged. `main` held only the first two days of
 work. Everything has now been merged into one tree (`lower_bound/`), and the

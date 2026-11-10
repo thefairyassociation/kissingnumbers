@@ -99,6 +99,12 @@ def main() -> int:
                     help="CPU-minutes of branching spent on each new root")
     ap.add_argument("--keep-below", type=float, default=0.5003,
                     help="keep the coordinates of any polished candidate below this")
+    ap.add_argument("--deepen-below", type=float, default=0.50004,
+                    help="branch again around any candidate below this (0 disables)")
+    ap.add_argument("--deepen-minutes", type=float, default=12.0,
+                    help="wall-clock minutes of extra branching around each such candidate")
+    ap.add_argument("--deepen-stage", type=int, default=4,
+                    help="schedule stage at which a deepened candidate re-enters (4 = exponent 128)")
     a = ap.parse_args()
 
     for tool in (FASTRIESZ, HERE / "hingepol"):
@@ -124,6 +130,40 @@ def main() -> int:
 
     def remaining() -> float:
         return deadline - time.time()
+
+    def harvest(bdir: Path, rnd: int):
+        """Read one branch_search directory: (best max, finished branches, promising candidates)."""
+        nonlocal best
+        round_best, finished, promising = 9.0, 0, []
+        logf = bdir / "branch.log"
+        if logf.exists():
+            for line in logf.read_text().splitlines():
+                rec = json.loads(line)
+                if "indep_max" in rec:
+                    finished += 1
+                    round_best = min(round_best, rec["indep_max"])
+        # keep the coordinates of near-misses and of every certified hit
+        for cand in sorted(bdir.glob("cand_*.txt")):
+            m = indep_max(cand)
+            cert = cand.with_suffix(".cert.json")
+            if m < 0.5:
+                # certify again here so the verdict does not depend on branch_search
+                c = subprocess.run([sys.executable, str(CERTIFY), str(cand), "--json-out", str(cert)],
+                                   capture_output=True, text=True)
+                ok = c.returncode == 0 and "CERTIFIED" in c.stdout
+                hits.append({"file": cand.name, "round": rnd, "max": m, "certified": ok,
+                             "certify_tail": c.stdout.strip().splitlines()[-1:]})
+                shutil.copy(cand, kept_dir / cand.name)
+                if cert.exists():
+                    shutil.copy(cert, kept_dir / cert.name)
+                print(f"*** candidate below 1/2: {cand.name} max={m!r} certified={ok}", flush=True)
+            elif m < a.keep_below:
+                shutil.copy(cand, kept_dir / cand.name)
+                if m < a.deepen_below:
+                    promising.append((cand.name, m))
+            if m < best["max"]:
+                best = {"max": m, "file": cand.name, "round": rnd}
+        return round_best, finished, promising
 
     # A full branch costs about 30 s (dim 12) plus the polish; stop screening
     # when there would be no time left to follow a root up.
@@ -164,43 +204,37 @@ def main() -> int:
             cmd += ["--extra-root", s]
         r = subprocess.run(cmd, capture_output=True, text=True)
         tail = r.stdout.strip().splitlines()[-1:] or [""]
-        round_best = 9.0
-        finished = 0
-        per_root: dict[str, float] = {}
-        logf = bdir / "branch.log"
-        if logf.exists():
-            for line in logf.read_text().splitlines():
-                rec = json.loads(line)
-                if "indep_max" in rec:
-                    finished += 1
-                    m = rec["indep_max"]
-                    round_best = min(round_best, m)
-                    # branches of branches inherit the root through the state name
-                    per_root[rec["parent"]] = min(per_root.get(rec["parent"], 9.0), m)
-        # keep the coordinates of near-misses and of every certified hit
-        for cand in sorted(bdir.glob("cand_*.txt")):
-            m = indep_max(cand)
-            cert = cand.with_suffix(".cert.json")
-            if m < 0.5:
-                # certify again here so the verdict does not depend on branch_search
-                c = subprocess.run([sys.executable, str(CERTIFY), str(cand), "--json-out", str(cert)],
-                                   capture_output=True, text=True)
-                ok = c.returncode == 0 and "CERTIFIED" in c.stdout
-                hits.append({"file": cand.name, "round": rnd, "max": m, "certified": ok,
-                             "certify_tail": c.stdout.strip().splitlines()[-1:]})
-                shutil.copy(cand, kept_dir / cand.name)
-                if cert.exists():
-                    shutil.copy(cert, kept_dir / cert.name)
-                print(f"*** candidate below 1/2: {cand.name} max={m!r} certified={ok}", flush=True)
-            elif m < a.keep_below:
-                shutil.copy(cand, kept_dir / cand.name)
-            if m < best["max"]:
-                best = {"max": m, "file": cand.name, "round": rnd}
+        round_best, finished, promising = harvest(bdir, rnd)
+        # Rare good basins are worth more than fresh roots: branch again around them.
+        deepened = []
+        for cand_name, m in promising:
+            if a.deepen_below <= 0 or remaining() < 300:
+                break
+            ddir = out / f"deepen_r{rnd:04d}_{len(deepened)}"
+            dh = min(a.deepen_minutes * 60, max(remaining() - 120, 60)) / 3600.0
+            dcmd = [sys.executable, str(BRANCH), str(kept_dir / cand_name), str(ddir), "--n", str(a.n),
+                    "--N", str(a.N), "--root-stage", str(a.deepen_stage), "--save-stage", str(a.deepen_stage + 2),
+                    "--screen-stage", "9", "--workers", str(a.workers), "--hours", repr(dh),
+                    "--scale", repr(a.scale), "--adam", a.adam, "--sigmas", "1e-3,3e-3,1e-2",
+                    "--seed", str(a.seed_start // 1000 + 500 + rnd * 10 + len(deepened))]
+            try:
+                subprocess.run(dcmd, capture_output=True, text=True)
+                dbest, dfin, _ = harvest(ddir, rnd)
+            except Exception as exc:      # deepening is optional; never lose the shard over it
+                print(f"deepening {cand_name} failed: {exc}", file=sys.stderr, flush=True)
+                break
+            deepened.append({"from": cand_name, "from_max": m, "finished_branches": dfin,
+                             "best": dbest if dbest < 9 else None})
+            shutil.rmtree(ddir, ignore_errors=True)
+            print(f"[{time.time() - t0:7.0f}s] round {rnd}: deepened {cand_name} ({m:.9f}): "
+                  f"{dfin} branches, best {dbest:.9f}", flush=True)
+            round_best = min(round_best, dbest)
         for r_ in new_roots:
             r_["round"] = rnd
             roots.append(r_)
         rounds.append({"round": rnd, "roots": [r_["seed"] for r_ in new_roots], "finished_branches": finished,
-                       "best": round_best if round_best < 9 else None, "branch_tail": tail[0][:200]})
+                       "best": round_best if round_best < 9 else None, "deepened": deepened,
+                       "branch_tail": tail[0][:200]})
         shutil.rmtree(bdir, ignore_errors=True)   # state files are large; summaries are kept
         print(f"[{time.time() - t0:7.0f}s] round {rnd}: {finished} finished branches, "
               f"round best {round_best:.9f}, campaign best {best['max']:.9f}", flush=True)

@@ -1,17 +1,7 @@
 {
- "name": "c02-scale",
+ "name": "c03-tail",
  "hours": 5.0,
  "arms": [
-  {
-   "id": "d12-file",
-   "n": 12,
-   "N": 841,
-   "init": "d12-841",
-   "extra": "file",
-   "anti": 300,
-   "shards": 11,
-   "seed_base": 100000000
-  },
   {
    "id": "d12-cube",
    "n": 12,
@@ -19,8 +9,8 @@
    "init": "d12-840",
    "extra": "hypercube",
    "anti": 300,
-   "shards": 4,
-   "seed_base": 200000000
+   "shards": 16,
+   "seed_base": 500000000
   },
   {
    "id": "d13-cube",
@@ -29,19 +19,8 @@
    "init": "d13-1154",
    "extra": "hypercube",
    "anti": 250,
-   "shards": 3,
-   "seed_base": 300000000
-  },
-  {
-   "id": "d14-cube",
-   "n": 14,
-   "N": 1933,
-   "init": "d14-1932",
-   "extra": "hypercube",
-   "anti": 600,
-   "shards": 2,
-   "seed_base": 400000000,
-   "screen_batch": 2
+   "shards": 4,
+   "seed_base": 600000000
   }
  ]
 }
