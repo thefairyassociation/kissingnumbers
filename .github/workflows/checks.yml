@@ -113,7 +113,7 @@ jobs:
             BASE=$(git rev-parse HEAD~1)
           fi
           echo "checking whitespace in $BASE..HEAD"
-          git diff --check "$BASE" HEAD -- . ':!lower_bound/experimental/validation_*/results'
+          git diff --check "$BASE" HEAD -- . ':(exclude,glob)lower_bound/experimental/validation_*/results/**'
 
   upper-bound:
     # Exact verification of every committed upper-bound certificate.  Standard
