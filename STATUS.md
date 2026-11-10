@@ -122,12 +122,27 @@ What that says:
   configuration survives the first stage intact, but 296 full runs all end
   near 0.519. Not close.
 
-Campaign `c04-beyond`, started 2026-11-10, points the now-validated pipeline
-at the actual open questions: **842 points in dimension 12** starting from the
-new 841, and **1155 points in dimension 13** from the two later entry stages.
-Its record will appear in `lower_bound/campaigns/c04-beyond/`. Nobody should
-expect a hit: the authors of the 841 report that their own 842 attempts
-stalled at 0.5009.
+Campaign `c04-beyond` (400 CPU-hours, same day) then pointed the validated
+pipeline at the actual open questions. **Neither produced a record.**
+
+| question | starts | best max inner product (need < 0.5) |
+| --- | ---: | ---: |
+| 842 points in dimension 12, starting from the new 841 | 1,680 | 0.5009716 |
+| 1155 points in dimension 13, entering one stage later | 1,296 | 0.5060090 |
+| 1155 points in dimension 13, entering two stages later | 492 | 0.5063593 |
+
+* The 842 runs are strikingly uniform: every one of six machines ended
+  between 0.50097 and 0.50104. That is ten times farther from 1/2 than the
+  841 "floor" was, with no visible tail, and it matches what the authors of
+  the 841 reported for their own 842 attempts (0.5009). This looks like a
+  wall, not bad luck.
+* Dimension 13 improved slightly on the previous best (0.506587 → 0.506009)
+  but all starts end in the same narrow band, 0.5060–0.5072. Again no tail.
+
+Campaign `c05-two-points`, started 2026-11-10, is one more 842 attempt by a
+different route: the classical 840 plus *two* extra points, melted and
+re-formed the way the successful 841 runs were (about 4% of starts re-form).
+Its record will appear in `lower_bound/campaigns/c05-two-points/`.
 
 ### 4. Upper bound: a new, separate track with machine-checked proofs
 
@@ -206,17 +221,19 @@ python3 upper_bound/sdp/verify_certificate.py upper_bound/certificates/sdp/*.jso
 
 ## What to do next
 
-1. **Read campaign `c04-beyond`** (842 points in dimension 12; 1155 points in
-   dimension 13 from the later entry stages). A certified hit in either arm
-   would be a new record and must be re-certified locally before anyone says
-   so. The likely outcome is a set of best values above 1/2; compare the
-   dimension-13 ones with 0.506587, the best so far.
+1. **Read campaign `c05-two-points`** (842 points in dimension 12 from the
+   840 plus two points). A certified hit would be a new record and must be
+   re-certified locally before anyone says so. If it also ends near 0.501,
+   stop spending compute on 842 by this method: c04 already suggests a wall.
 2. **Find a way to get "good starts" in dimension 13.** Dimension 12 works
    because the 840 melts and re-forms into a new ordered structure with room
    for one more point. The 1154 never re-forms. Without an analogue of that
    step, more computing time in dimension 13 is unlikely to help. Ideas not
    yet tried: melt only one layer and hold the rest; start from the 1146-point
    PackingStar configurations instead; remove a few points before adding more.
+   (One idea that was tried and fails at once: using the 840 or the new 841 as
+   the middle layer of a dimension-13 configuration. They leave no room at
+   all for the outer layers — `lower_bound/dim13/equator_room.py`.)
 3. **Understand the new 841.** It differs from the published one. Reading off
    its structure (which of the 840's pairs survive, where the extra point
    sits) might show how to make an 842, or how to write an 841 down exactly.

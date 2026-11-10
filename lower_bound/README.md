@@ -264,7 +264,7 @@ provably exists, since Takhanov et al. reached 0.499999937751:
 | Riesz continuation + Armijo line search (`KISS_SOLVER=gd`, the default) | **0.50519** | 0.5107 |
 | BLAS engine + Adam on the published schedule (`KISS_SOLVER=adam`) | **0.500477** | not run |
 | `fastriesz` + fingerprint screen + branching + minimax polish (2026-10-02) | **0.5001014** | 0.506587 |
-| the same pipeline as a campaign, random extra point, 1,685 re-crystallised roots (2026-11-10) | **0.4999968 — certified** | no usable starts yet |
+| the same pipeline as a campaign, random extra point, 1,685 re-crystallised roots (2026-11-10) | **0.4999968 — certified** | 0.506009 (entering at `s = 16`; the `s = 8` entry gives no usable start) |
 
 The Adam row is the newer calibration; see `docs/CALIBRATION_optimizer.md` for how it
 was measured and `lib/FAITHFUL_841.md` for the opt-in source-faithful protocol.
@@ -355,7 +355,15 @@ hypercube vertex direction for every seed instead of a fixed one.
   After `s = 8` the 1154 keeps 50–150 of its 577 antipodal pairs and never
   re-forms (threshold was 250). Entering at `s = 16` keeps 431–464 pairs and
   entering at `s = 32` keeps 566–577. `campaign.py --start-stage 1|2` now
-  screens and branches from those entries; campaign c04 runs both.
+  screens and branches from those entries; campaign c04 ran both.
+* **c04, the first use of the validated pipeline on open cases, found no
+  record.** 842 points in dimension 12 from the found 841: 1,680 roots, best
+  0.5009716, and every shard's best lies in 0.50097–0.50104 — a floor ten
+  times higher than the 841 floor and with no tail (the authors of the 841
+  report 0.50090 for their own 842). 1155 points in dimension 13: 1,296 roots
+  entering at `s = 16`, best 0.5060090; 492 roots entering at `s = 32`, best
+  0.5063593; per-shard bests all in 0.5060–0.5072. The previous best was
+  0.506587.
 
 A second flaw the calibration exposed: with a seed file the Riesz run was fully
 deterministic, so two different "restarts" returned bit-identical answers
@@ -498,7 +506,8 @@ Records of finished campaigns are in [`campaigns/`](campaigns/):
 | `c01-smoke` | one short shard per arm | plumbing test only |
 | `c02-scale` | dim 12 / 841, fixed and random extra point; dim 14 / 1933 | best 0.5000060 (dim 12), 0.518981 (dim 14); nothing certified |
 | `c03-tail` | dim 12 / 841, random extra point, 16 shards; dim 13 / 1155, 4 shards | **841 found and certified** (0.4999968); dim 13: no roots |
-| `c04-beyond` | dim 12 / **842** from the found 841; dim 13 / 1155 entering at `s = 16` and `s = 32` | started 2026-11-10 |
+| `c04-beyond` | dim 12 / **842** from the found 841; dim 13 / 1155 entering at `s = 16` and `s = 32` | nothing certified. 842: best 0.5009716, all six shards within 0.50097–0.50104. Dim 13: best 0.5060090 (`s = 16`), 0.5063593 (`s = 32`) |
+| `c05-two-points` | dim 12 / **842** from the classical 840 plus one fixed and one random extra point, entering at `s = 8` | started 2026-11-10 |
 
 ## If someone picks this up
 

@@ -53,7 +53,8 @@ exclusion.
 | Sections of the Leech lattice or of Ganzhinov's 1932? Integer shells? | `search_leech_sections.py`, `search_ganzhinov_sections.py`, `search_shells.py` | At most 984. |
 | Global-linear-code constructions in the norm-8 shell of Z¹³? | `v2/search_globalcode.py`, `v2/search_gc2.py`, `v2/search_gc3.py` | Ruled out structurally: ceiling about 984, best built 760. |
 | Group orbits of PSL(2,13) / PGL(2,13)? | `v2/orbits.py` | Did not reach max cosine ≤ 1/2. |
-| Numerical optimisation of 1155 free points? | `../lib/fastriesz.c`, `../lib/campaign.py` | Best max inner product **0.506587** (needs ≤ 0.5). Weak evidence at most: the same pipeline does find an 841 in dimension 12, but only once in about 1,700 good starts, and dimension 13 has had far fewer (campaign c03 produced none: the first stage melts the 1154 every time). See `../README.md`. |
+| Numerical optimisation of 1155 free points? | `../lib/fastriesz.c`, `../lib/campaign.py` | Best max inner product **0.506009** (needs ≤ 0.5), from campaign c04 (1,788 starts entering the schedule after the stage that melts the 1154; all end in 0.5060–0.5072). Weak evidence at most: the same pipeline does find an 841 in dimension 12, but there the starts re-crystallise into a new structure first, and the 1154 never does. See `../README.md`. |
+| Put the classical 840, or the 841 found by c03, on the equator instead of the 816 tetrads? | [`equator_room.py`](equator_room.py) | **No room.** A layer point needs inner product ≤ 1/√3 ≈ 0.5774 with every equator point; the deepest holes found are 0.6125 (840) and 0.6091 (841), against 0.5 for the ZE99 equator. Numerical (300 starts of a local method), not a proof. |
 
 Other files: `v2/layers.py`, `v2/completeB.py`, `v2/greedyB.py` (layer
 decomposition and attempts to enlarge a layer; they share scratch arrays through

@@ -1,42 +1,16 @@
 {
- "name": "c04-beyond",
+ "name": "c05-two-points",
  "hours": 5.0,
  "arms": [
   {
-   "id": "d12-842",
+   "id": "d12-842-melt",
    "n": 12,
    "N": 842,
-   "init": "d12-841-found",
+   "init": "d12-841",
    "extra": "hypercube",
    "anti": 300,
-   "shards": 6,
-   "seed_base": 800000000
-  },
-  {
-   "id": "d13-s16",
-   "n": 13,
-   "N": 1155,
-   "init": "d13-1154",
-   "extra": "hypercube",
-   "anti": 380,
-   "start_stage": 1,
-   "screen_batch": 3,
-   "branch_minutes": 8,
-   "shards": 10,
-   "seed_base": 810000000
-  },
-  {
-   "id": "d13-s32",
-   "n": 13,
-   "N": 1155,
-   "init": "d13-1154",
-   "extra": "hypercube",
-   "anti": 500,
-   "start_stage": 2,
-   "screen_batch": 3,
-   "branch_minutes": 8,
-   "shards": 4,
-   "seed_base": 830000000
+   "shards": 20,
+   "seed_base": 900000000
   }
  ]
 }
