@@ -3,11 +3,9 @@
 
 NUMERICAL, NOT A PROOF.  This solves the semidefinite program in floating
 point and prints the optimum.  The true optimum is a rigorous upper bound,
-but a number printed by an interior-point solver is not: turning it into a
-theorem needs an exactly feasible (rational) dual solution, which this file
-does not produce.  See upper_bound/README.md for what that would take.  The
-only machine-checked upper bounds in this repository are the LP certificates
-under upper_bound/certificates/lp/.
+but a number printed by an interior-point solver is not.  make_certificate.py
+turns a solution into exact rational data, and verify_certificate.py checks
+that data in exact arithmetic; only what that verifier accepts is a proof.
 
 The program (Bachoc & Vallentin, J. Amer. Math. Soc. 21 (2008), Theorem 4.2).
 With P_k^n the Gegenbauer polynomials of R^n, P_k^n(1) = 1, put

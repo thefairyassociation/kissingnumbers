@@ -115,8 +115,13 @@ jobs:
       - name: Verify all LP certificates exactly
         run: python3 upper_bound/lp/verify_certificate.py upper_bound/certificates/lp/*.json
 
+      - name: Verify the three-point (semidefinite) certificates exactly
+        run: python3 upper_bound/sdp/verify_certificate.py upper_bound/certificates/sdp/*.json
+
       - name: Verifier tests
-        run: python3 upper_bound/tests/test_lp_certificates.py
+        run: |
+          python3 upper_bound/tests/test_lp_certificates.py
+          python3 upper_bound/tests/test_sdp_certificates.py
 
   no-blas:
     # The OpenBLAS dependency used to be a parse-time $(error), which blocked
