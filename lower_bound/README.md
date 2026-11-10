@@ -486,7 +486,9 @@ do not survive a container restart). They run as *campaigns*:
 * `.github/workflows/search.yml` runs many shards in parallel on the free
   GitHub-hosted runners. What to run is described by
   `.github/search-campaign.json`; pushing a change to that file starts a
-  campaign, and its last job commits the result to `campaigns/<name>/`;
+  campaign, and its last job commits the result to `campaigns/<name>/`.
+  A push is ignored if that directory already exists, so merging a branch
+  does not re-run a campaign that has been recorded;
 * `lib/campaign_collect.py` merges the shards. It recomputes every kept
   configuration and re-runs the exact certifier itself, so a "hit" in a
   campaign record means the certifier passed, not that an optimiser said so.

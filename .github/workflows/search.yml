@@ -7,6 +7,11 @@ name: search campaign
 # number of parallel shards).  Pushing a change to that file starts a
 # campaign on the branch that was pushed; "Run workflow" does the same by hand.
 #
+# A push does nothing if lower_bound/campaigns/<name>/ already exists: that
+# campaign has been run and recorded.  This is what stops a merge (which
+# carries the spec file to another branch) from running the last campaign a
+# second time.  "Run workflow" ignores the check.
+#
 # Each shard uploads its summary (and the coordinates of anything close to or
 # below 1/2) as an artifact.  The final job gathers every shard into
 # lower_bound/campaigns/<name>/ and commits that one directory back to the
@@ -34,12 +39,13 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       name: ${{ steps.plan.outputs.name }}
       hours: ${{ steps.plan.outputs.hours }}
+      fresh: ${{ steps.plan.outputs.fresh }}
     steps:
       - uses: actions/checkout@v4
       - id: plan
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, re
+          import json, os, re
           spec = json.load(open(".github/search-campaign.json"))
           name = spec["name"]
           assert re.fullmatch(r"[A-Za-z0-9._-]{1,40}", name), "campaign name must be a plain slug"
@@ -63,10 +69,14 @@ jobs:
           print("matrix=" + json.dumps({"include": rows}))
           print("name=" + name)
           print("hours=" + repr(hours))
+          recorded = os.path.isdir("lower_bound/campaigns/" + name)
+          fresh = os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch" or not recorded
+          print("fresh=" + ("true" if fresh else "false"))
           PY
 
   shard:
     needs: plan
+    if: needs.plan.outputs.fresh == 'true'
     name: ${{ matrix.arm }} / ${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
@@ -109,7 +119,7 @@ jobs:
 
   collect:
     needs: [plan, shard]
-    if: always() && needs.plan.result == 'success'
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.fresh == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
