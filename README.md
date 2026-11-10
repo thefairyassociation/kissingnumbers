@@ -24,15 +24,17 @@ Records are from [Henry Cohn's table](https://cohn.mit.edu/kissing-numbers), fet
 
 | dim | best known lower | best known upper | verified in this repository |
 | ---: | ---: | ---: | --- |
-| 8 | 240 | 240 | upper bound 240, exact certificate |
+| 3 | 12 | 12 | upper bound 12, exact three-point (semidefinite) certificate |
+| 8 | 240 | 240 | upper bound 240, exact LP certificate |
 | 12 | 841 | 1355 | lower 841 (the published configuration, certified exactly here); upper 1416 (LP) |
 | 13 | 1154 | 2064 | lower 1154 (reproduction, exact); upper 2233 (LP) |
 | 14 | 1932 | 3174 | lower 1932 (reproduction, exact); upper 3492 (LP) |
-| 24 | 196560 | 196560 | upper bound 196560, exact certificate |
+| 24 | 196560 | 196560 | upper bound 196560, exact LP certificate |
 
-The upper bounds verified here are the classical linear-programming bounds.
-They are weaker than the published semidefinite-programming records in every
-dimension except 8 and 24; the full table is in
+Every bound in the right-hand column is a known result re-verified here, not
+a new one. The upper bounds are the classical linear-programming bounds
+(plus one semidefinite certificate in dimension 3); in dimensions 12–14 they
+are weaker than the published semidefinite records. The full table is in
 [`upper_bound/README.md`](upper_bound/README.md).
 
 ## Layout
@@ -47,7 +49,7 @@ lower_bound/      constructions and searches
   logs/progress.log      append-only log of every attempt
 upper_bound/      proofs of impossibility
   lp/                    Delsarte LP bound: generator and exact verifier
-  sdp/                   three-point semidefinite bound (numerical)
+  sdp/                   three-point semidefinite bound: solver, certificate maker, exact verifier
   certificates/          machine-checkable certificates
 docs/HISTORY.md   what each old branch and pull request contained, and where it went
 STATUS.md         plain-English status of both tracks
@@ -79,6 +81,10 @@ Upper bounds (standard library only, nothing to install):
 python3 upper_bound/lp/verify_certificate.py upper_bound/certificates/lp/*.json
 ```
 
+```bash
+python3 upper_bound/sdp/verify_certificate.py upper_bound/certificates/sdp/*.json
+```
+
 The full test suites and what they protect are described in
 [`lower_bound/README.md`](lower_bound/README.md#running-the-checks) and
 [`upper_bound/README.md`](upper_bound/README.md). CI
@@ -93,7 +99,7 @@ them on every push to `main` and on every pull request.
   is never evidence; two false "feasible" reports have been produced by
   numerical bugs here and both were caught this way.
 * An upper bound is only claimed for a certificate that
-  `upper_bound/lp/verify_certificate.py` (or a later exact verifier) accepts.
+  one of the exact verifiers under `upper_bound/` accepts.
   A number printed by a semidefinite solver is not a proof and is labelled as
   numerical wherever it appears.
 * Negative results are recorded with their reason, and timeouts are recorded
