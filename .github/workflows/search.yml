@@ -7,10 +7,13 @@ name: search campaign
 # number of parallel shards).  Pushing a change to that file starts a
 # campaign on the branch that was pushed; "Run workflow" does the same by hand.
 #
-# A push does nothing if lower_bound/campaigns/<name>/ already exists: that
-# campaign has been run and recorded.  This is what stops a merge (which
-# carries the spec file to another branch) from running the last campaign a
-# second time.  "Run workflow" ignores the check.
+# A push starts nothing in three cases, all of which exist because a merge is
+# also a push that carries the spec file:
+#   * the push is to the default branch (campaigns there start only from
+#     "Run workflow");
+#   * the spec names a "branch" and this is not it;
+#   * lower_bound/campaigns/<name>/ already exists (run and recorded).
+# "Run workflow" ignores all three.
 #
 # Each shard uploads its summary (and the coordinates of anything close to or
 # below 1/2) as an artifact.  The final job gathers every shard into
@@ -43,9 +46,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: plan
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, os, re
+          import json, os, re, sys
           spec = json.load(open(".github/search-campaign.json"))
           name = spec["name"]
           assert re.fullmatch(r"[A-Za-z0-9._-]{1,40}", name), "campaign name must be a plain slug"
@@ -70,7 +75,19 @@ jobs:
           print("name=" + name)
           print("hours=" + repr(hours))
           recorded = os.path.isdir("lower_bound/campaigns/" + name)
-          fresh = os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch" or not recorded
+          ref, default = os.environ["GITHUB_REF_NAME"], os.environ["DEFAULT_BRANCH"]
+          wanted = spec.get("branch")
+          if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
+              fresh, why = True, "started by hand"
+          elif ref == default:
+              fresh, why = False, "pushes to the default branch never start a campaign"
+          elif wanted is not None and wanted != ref:
+              fresh, why = False, f"the spec is for branch {wanted!r}"
+          elif recorded:
+              fresh, why = False, "this campaign is already recorded"
+          else:
+              fresh, why = True, "new campaign"
+          print(f"campaign {name} on {ref}: {'starting' if fresh else 'not starting'} ({why})", file=sys.stderr)
           print("fresh=" + ("true" if fresh else "false"))
           PY
 
@@ -101,6 +118,7 @@ jobs:
         run: |
           python3 lower_bound/lib/campaign.py "$RUNNER_TEMP/out" \
             --n ${{ matrix.dim }} --N ${{ matrix.points }} --init "$RUNNER_TEMP/init.txt" \
+            --init-label ${{ matrix.init }} \
             --extra ${{ matrix.extra }} --anti ${{ matrix.anti }} \
             --screen-batch ${{ matrix.screen_batch }} --start-stage ${{ matrix.start_stage }} \
             --branch-minutes-per-root ${{ matrix.branch_minutes }} \
@@ -125,9 +143,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The commit that started the campaign, not the branch tip: the record
+      # must describe the spec that was run, even if a later spec has been
+      # pushed in the meantime.  Full history so the record can be rebased
+      # onto the tip below.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -142,15 +165,18 @@ jobs:
             --spec .github/search-campaign.json --run-url \
             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - name: Commit the campaign record
+        env:
+          REF: ${{ github.ref_name }}
+          CAMPAIGN: ${{ needs.plan.outputs.name }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "lower_bound/campaigns/${{ needs.plan.outputs.name }}"
+          git add "lower_bound/campaigns/$CAMPAIGN"
           if git diff --cached --quiet; then echo 'nothing to record'; exit 0; fi
-          git commit -m "Record search campaign ${{ needs.plan.outputs.name }} [skip ci]"
+          git commit -m "Record search campaign $CAMPAIGN [skip ci]"
           for attempt in 1 2 3 4; do
-            git pull --rebase origin "${{ github.ref_name }}" && git push origin "HEAD:${{ github.ref_name }}" && exit 0
+            git pull --rebase origin "$REF" && git push origin "HEAD:refs/heads/$REF" && exit 0
             sleep $((attempt * 5))
           done
           exit 1

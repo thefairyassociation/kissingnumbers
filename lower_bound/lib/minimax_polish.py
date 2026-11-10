@@ -26,17 +26,13 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 HINGEPOL = HERE / "hingepol"
+sys.path.insert(0, str(HERE))
+from maxcos import max_cos  # noqa: E402,F401  (re-exported: callers use minimax_polish.max_cos)
 
 
 def unit(path) -> np.ndarray:
     X = np.loadtxt(path, comments="#", ndmin=2)
     return X / np.linalg.norm(X, axis=1, keepdims=True)
-
-
-def max_cos(X: np.ndarray) -> float:
-    G = X @ X.T
-    np.fill_diagonal(G, -2)
-    return float(G.max())
 
 
 def polish(X: np.ndarray, delta: float = 1e-4, min_delta: float = 1e-9, iters: int = 4000,

@@ -5,7 +5,9 @@ name: checks
 # guards below exist because a regression in them was shipped once already.
 on:
   push:
-    branches: [main, 'claude/**']
+    # Branches are checked through their pull request; listing them here as
+    # well would run every job twice for each push to a branch with a PR open.
+    branches: [main]
     paths-ignore:
       - 'lower_bound/campaigns/**'
   pull_request:
@@ -33,6 +35,8 @@ jobs:
       OPENBLAS_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whitespace step compares against the base commit
 
       - uses: actions/setup-python@v5
         with:
@@ -98,8 +102,18 @@ jobs:
           fi
           echo "only the known mis8 log was modified"
 
+      # Check what this push or pull request changes, not the working tree
+      # (which only differs from HEAD by the mis8 log above).  Raw result data
+      # under experimental/validation_*/results is exempt.
       - name: Whitespace
-        run: git diff --check
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          echo "checking whitespace in $BASE..HEAD"
+          git diff --check "$BASE" HEAD -- . ':!lower_bound/experimental/validation_*/results'
 
   upper-bound:
     # Exact verification of every committed upper-bound certificate.  Standard

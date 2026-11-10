@@ -45,16 +45,8 @@ FASTRIESZ = HERE / "fastriesz"
 BRANCH = HERE / "branch_search.py"
 CERTIFY = HERE / "certify_float.py"
 ENV1 = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
-
-
-def indep_max(path: Path) -> float:
-    X = np.loadtxt(path, comments="#", ndmin=2)
-    if not np.all(np.isfinite(X)):
-        return float("inf")
-    X /= np.linalg.norm(X, axis=1, keepdims=True)
-    G = X @ X.T
-    np.fill_diagonal(G, -2)
-    return float(G.max())
+sys.path.insert(0, str(HERE))
+from maxcos import indep_max  # noqa: E402
 
 
 def parse(line: str) -> dict:
@@ -86,6 +78,8 @@ def main() -> int:
     ap.add_argument("--n", type=int, required=True)
     ap.add_argument("--N", type=int, required=True)
     ap.add_argument("--init", type=Path, required=True)
+    ap.add_argument("--init-label", default=None,
+                    help="name recorded for the starting configuration (e.g. d12-840); default: the file name")
     ap.add_argument("--seed-start", type=int, required=True)
     ap.add_argument("--hours", type=float, default=0.2)
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
@@ -102,9 +96,10 @@ def main() -> int:
     ap.add_argument("--branch-minutes-per-root", type=float, default=4.0,
                     help="CPU-minutes of branching spent on each new root")
     ap.add_argument("--keep-below", type=float, default=0.5003,
-                    help="keep the coordinates of any polished candidate below this")
+                    help="keep the coordinates of each branch round's best candidate if it is below this "
+                         "(every candidate below --deepen-below is kept as well)")
     ap.add_argument("--deepen-below", type=float, default=0.50004,
-                    help="branch again around any candidate below this (0 disables)")
+                    help="keep every candidate below this and branch again around each (0 disables)")
     ap.add_argument("--deepen-minutes", type=float, default=12.0,
                     help="wall-clock minutes of extra branching around each such candidate")
     ap.add_argument("--deepen-stage", type=int, default=4,
@@ -132,8 +127,31 @@ def main() -> int:
     hits: list[dict] = []
     rnd = 0
 
+    branch_failures: list[dict] = []
+
     def remaining() -> float:
         return deadline - time.time()
+
+    def write_summary(final: bool) -> dict:
+        """Write summary.json.  Called after every round, so that a shard killed at
+        the job's time limit still leaves a summary next to whatever it kept."""
+        summary = {
+            "n": a.n, "N": a.N, "init": a.init_label or a.init.name, "extra": a.extra, "adam": a.adam,
+            "scale": a.scale, "jit": a.jit, "start_stage": a.start_stage, "anti_threshold": a.anti,
+            "seed_start": a.seed_start, "seed_end": next_seed,
+            "workers": a.workers, "hours": a.hours, "elapsed_seconds": round(time.time() - t0, 1),
+            "complete": final,
+            "screened": screened, "roots": len(roots),
+            "root_rate": (len(roots) / screened) if screened else None,
+            "anti_histogram": {str(k): v for k, v in sorted(anti_hist.items())},
+            "root_seeds": [(r["seed"], r["anti"]) for r in roots],
+            "rounds": rounds, "best": best, "hits": hits, "branch_failures": branch_failures,
+            "certified_below_half": any(h["certified"] for h in hits),
+        }
+        tmp = out / "summary.json.tmp"
+        tmp.write_text(json.dumps(summary, indent=1) + "\n")
+        os.replace(tmp, out / "summary.json")
+        return summary
 
     def harvest(bdir: Path, rnd: int):
         """Read one branch_search directory: (best max, finished branches, promising candidates)."""
@@ -181,6 +199,7 @@ def main() -> int:
         if not any(results):
             # fastriesz produced no seed lines at all: a broken build or bad arguments.
             print("screening produced no results; aborting this shard", file=sys.stderr)
+            write_summary(final=False)
             return 1
         new_roots = []
         for recs in results:
@@ -194,7 +213,15 @@ def main() -> int:
                     new_roots.append(rec)
         print(f"[{time.time() - t0:7.0f}s] round {rnd}: screened {screened} seeds, "
               f"{len(new_roots)} new roots {[(r['seed'], r['anti']) for r in new_roots]}", flush=True)
-        if not new_roots or remaining() < 90:
+        if not new_roots:
+            continue
+        if remaining() < 90:
+            # No time left to branch them, but they were found: count them.
+            for r_ in new_roots:
+                r_["round"] = rnd
+                r_["branched"] = False
+                roots.append(r_)
+            write_summary(final=False)
             continue
         hours = min(len(new_roots) * a.branch_minutes_per_root / a.workers / 60.0,
                     max(remaining() - 60, 30) / 3600.0)
@@ -203,15 +230,20 @@ def main() -> int:
         cmd = [sys.executable, str(BRANCH), states[0], str(bdir), "--n", str(a.n), "--N", str(a.N),
                "--root-stage", str(a.start_stage + 2), "--workers", str(a.workers), "--hours", repr(hours),
                "--scale", repr(a.scale), "--adam", a.adam, "--seed", str(a.seed_start // 1000 + rnd),
-               "--root-prob", "0.6"]
+               "--root-prob", "0.6", "--keep-below", repr(a.deepen_below)]
         for s in states[1:]:
             cmd += ["--extra-root", s]
         r = subprocess.run(cmd, capture_output=True, text=True)
         tail = r.stdout.strip().splitlines()[-1:] or [""]
+        if r.returncode != 0:
+            branch_failures.append({"round": rnd, "returncode": r.returncode, "stderr": r.stderr.strip()[-300:]})
+            print(f"branch_search exited {r.returncode} in round {rnd}: {r.stderr.strip()[-300:]}",
+                  file=sys.stderr, flush=True)
         round_best, finished, promising = harvest(bdir, rnd)
         # Rare good basins are worth more than fresh roots: branch again around them.
         deepened = []
-        for cand_name, m in promising:
+        # best first, and at most three per round so that one lucky round cannot eat the shard
+        for cand_name, m in sorted(promising, key=lambda t: t[1])[:3]:
             if a.deepen_below <= 0 or remaining() < 300:
                 break
             ddir = out / f"deepen_r{rnd:04d}_{len(deepened)}"
@@ -220,6 +252,7 @@ def main() -> int:
                     "--N", str(a.N), "--root-stage", str(a.deepen_stage), "--save-stage", str(a.deepen_stage + 2),
                     "--screen-stage", "9", "--workers", str(a.workers), "--hours", repr(dh),
                     "--scale", repr(a.scale), "--adam", a.adam, "--sigmas", "1e-3,3e-3,1e-2",
+                    "--keep-below", repr(a.deepen_below),
                     "--seed", str(a.seed_start // 1000 + 500 + rnd * 10 + len(deepened))]
             try:
                 subprocess.run(dcmd, capture_output=True, text=True)
@@ -242,20 +275,10 @@ def main() -> int:
         shutil.rmtree(bdir, ignore_errors=True)   # state files are large; summaries are kept
         print(f"[{time.time() - t0:7.0f}s] round {rnd}: {finished} finished branches, "
               f"round best {round_best:.9f}, campaign best {best['max']:.9f}", flush=True)
+        write_summary(final=False)
 
-    summary = {
-        "n": a.n, "N": a.N, "init": a.init.name, "extra": a.extra, "adam": a.adam, "scale": a.scale,
-        "jit": a.jit, "start_stage": a.start_stage, "anti_threshold": a.anti, "seed_start": a.seed_start, "seed_end": next_seed,
-        "workers": a.workers, "hours": a.hours, "elapsed_seconds": round(time.time() - t0, 1),
-        "screened": screened, "roots": len(roots),
-        "root_rate": (len(roots) / screened) if screened else None,
-        "anti_histogram": {str(k): v for k, v in sorted(anti_hist.items())},
-        "root_seeds": [(r["seed"], r["anti"]) for r in roots],
-        "rounds": rounds, "best": best, "hits": hits,
-        "certified_below_half": any(h["certified"] for h in hits),
-    }
+    summary = write_summary(final=True)
     shutil.rmtree(roots_dir, ignore_errors=True)
-    (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print("SUMMARY " + json.dumps({k: summary[k] for k in
                                    ("n", "N", "seed_start", "screened", "roots", "best", "certified_below_half")}))
     return 0

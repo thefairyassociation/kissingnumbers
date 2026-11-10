@@ -42,18 +42,9 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import minimax_polish  # noqa: E402
+from maxcos import indep_max  # noqa: E402
 FASTRIESZ = HERE / "fastriesz"
 CERTIFY = HERE / "certify_float.py"
-
-
-def indep_max(path: Path) -> float:
-    X = np.loadtxt(path, comments="#", ndmin=2)
-    if not np.all(np.isfinite(X)):
-        return float("inf")
-    X /= np.linalg.norm(X, axis=1, keepdims=True)
-    G = X @ X.T
-    np.fill_diagonal(G, -2)
-    return float(G.max())
 
 
 def parse(line: str) -> dict:
@@ -88,6 +79,9 @@ def main() -> int:
     ap.add_argument("--polish-below", type=float, default=0.5005,
                     help="minimax-polish every finished candidate below this; rank by the polished value")
     ap.add_argument("--polish-rounds", type=int, default=30)
+    ap.add_argument("--keep-below", type=float, default=0.0,
+                    help="keep the coordinate file of every finished candidate below this value, not "
+                         "only the running best and the hits (0 keeps only those)")
     ap.add_argument("--root-prob", type=float, default=0.25,
                     help="probability of branching from the root instead of the pool")
     ap.add_argument("--seed", type=int, default=0)
@@ -170,7 +164,8 @@ def main() -> int:
             if not line:
                 continue
             d = parse(line)
-            stages = [float(x) for x in d["stages"].split(",")]
+            # A run that breaks down in its first stage prints an empty stages= field.
+            stages = [float(x) for x in d.get("stages", "").split(",") if x]
             k_screen = a.screen_stage - pstage - 1
             if 0 <= k_screen < len(stages):
                 screen_vals.append(stages[k_screen])
@@ -187,9 +182,11 @@ def main() -> int:
                 if state.exists():
                     pool.append((m, str(state), a.save_stage))
                 if m < best[0]:
-                    if best[1] and best[0] >= 0.5:
+                    if best[1] and best[0] >= max(0.5, a.keep_below):
                         Path(best[1]).unlink(missing_ok=True)
                     best = (m, str(cand))
+                    keep_cand = True
+                if m < a.keep_below:
                     keep_cand = True
                 if m < 0.5:
                     rec["HIT"] = True

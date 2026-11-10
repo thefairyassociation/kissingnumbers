@@ -183,9 +183,16 @@ def w_cpsat(R, comp, subcubes, forb, m: int | None, seconds: float, workers: int
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = seconds
     solver.parameters.num_workers = workers
-    status = solver.Solve(M)
-    return {"solver": "CP-SAT", "status": solver.StatusName(status),
-            "found": int(round(solver.ObjectiveValue())), "upper_bound": int(np.floor(solver.BestObjectiveBound() + 1e-6))}
+    status = solver.StatusName(solver.Solve(M))
+    # Fail closed.  The empty set is always feasible, so INFEASIBLE or
+    # MODEL_INVALID means the model is wrong, and in those states the reported
+    # bound is a default (0), not something the solver established.
+    if status not in ("OPTIMAL", "FEASIBLE", "UNKNOWN"):
+        raise RuntimeError(f"CP-SAT returned {status}; no bound can be used")
+    has_solution = status in ("OPTIMAL", "FEASIBLE")
+    return {"solver": "CP-SAT", "status": status,
+            "found": int(round(solver.ObjectiveValue())) if has_solution else None,
+            "upper_bound": int(np.floor(solver.BestObjectiveBound() + 1e-6))}
 
 
 def _networkx_clique(comp_sub, out):
@@ -265,7 +272,8 @@ def w_highs(R, comp, subcubes, forb, m: int | None, seconds: float) -> dict:
     dual = getattr(res, "mip_dual_bound", None)
     return {"solver": "HiGHS", "status": int(res.status),
             "found": None if res.fun is None else int(round(-res.fun)),
-            "upper_bound": None if dual is None else int(np.floor(-dual + 1e-6))}
+            # no finite dual bound yet (time limit hit early): report "no bound", do not crash
+            "upper_bound": None if dual is None or not np.isfinite(dual) else int(np.floor(-dual + 1e-6))}
 
 
 def main() -> int:

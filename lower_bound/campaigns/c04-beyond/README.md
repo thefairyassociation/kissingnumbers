@@ -12,8 +12,12 @@ arithmetic).
 | d13-s16 | 13 | 1155 | 10 | 200.1 | 1320 | 1296 | 0.5060089561 | no |
 | d13-s32 | 13 | 1155 | 4 | 80.3 | 504 | 492 | 0.5063593108 | no |
 
-Near-antipodal pairs after the first exponent stage (bucketed by 50), per arm:
+Near-antipodal pairs at the screening point (bucketed by 50), per arm. The screen is applied
+after the first exponent stage a seed runs, which depends on the arm's entry stage:
 
-* `d12-842`: 400+: 1760
-* `d13-s16`: 350+: 1, 400+: 395, 450+: 919, 500+: 5
-* `d13-s32`: 550+: 504
+* `d12-842` (after the s = 8 stage): 400+: 1760
+* `d13-s16` (after the s = 16 stage): 350+: 1, 400+: 395, 450+: 919, 500+: 5
+* `d13-s32` (after the s = 32 stage): 550+: 504
+
+(This label was corrected by hand on 2026-11-10: as generated it said "after the first exponent
+stage" for all three arms, which is only true of `d12-842`. The numbers are unchanged.)
