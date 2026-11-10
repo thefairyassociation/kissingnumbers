@@ -5,7 +5,9 @@ name: checks
 # guards below exist because a regression in them was shipped once already.
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
+    paths-ignore:
+      - 'lower_bound/campaigns/**'
   pull_request:
   workflow_dispatch:
 

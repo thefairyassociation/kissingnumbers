@@ -105,18 +105,21 @@ exact elimination, and both identities coefficient by coefficient.
 | `sdp/make_certificate.py` | solves the SDP away from the boundary, rounds to rationals, repairs the identities exactly | no — it only has to find numbers the verifier accepts |
 | `sdp/three_point.py` | plain floating-point solve, for exploring | no — numerical only |
 
-Numerical optima from `three_point.py` (floating point, **not proofs**), to
-show where the method stands at the degrees this machine can reach:
+Numerical optima from `three_point.py` (floating point, **not proofs**), next
+to the published values of the same bound at higher degree (Mittelmann and
+Vallentin, [arXiv:0902.1105](https://arxiv.org/abs/0902.1105), Table 1):
 
-| dim | LP bound | three-point, degree 5 | three-point, degree 6 |
-| ---: | ---: | ---: | ---: |
-| 3 | 13.16 | 12.87 | – |
-| 4 | 25.56 | 25.73 | 25.04 |
+| dim | LP bound | here, degree 5 | here, degree 6 | here, degree 7 | published, degree 11 | published, degree 14 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3 | 13.16 | 12.87 | – | – | 12.4217 | 12.3818 |
+| 4 | 25.56 | 25.73 | 25.04 | 24.58 | 24.1055 | 24.0663 |
 
-At low degree the three-point bound can be *worse* than a high-degree LP
-bound, as in dimension 4 at degree 5. Bachoc and Vallentin's published
-dimension-4 value, about 24.06, was computed at a higher degree than this
-machine reaches with the unreduced model.
+The bound decreases with the degree, and ours sit above the published
+higher-degree values as they must. At low degree the three-point bound can
+even be *worse* than a high-degree LP bound, as in dimension 4 at degree 5.
+In these runs degree 7 is the first at which dimension 4 drops below 25; it needed
+the first-order solver (`--solver SCS`), because the interior-point solver
+ran out of memory on the unreduced 120×120 block.
 
 ## What it would take to go further
 
