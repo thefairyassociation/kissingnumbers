@@ -37,9 +37,12 @@ Hence   layer <= max( 144 + w(0), 132 + w(1), 120 + w(2), 100 + w(8) ).
 w(0), w(1), w(2), w(8) are maximum-clique problems on at most 648 vertices
 with a few side constraints.  They are solved here with CP-SAT; where the
 solver stops at the time limit its proven upper bound is used, which is all
-the argument needs.  --cross-check repeats them with two unrelated exact
-solvers: NetworkX's branch-and-bound clique for w(0) and w(8), and HiGHS
-(mixed-integer programming, with a clique-cover formulation) for w(1), w(2).
+the argument needs.  --cross-check repeats all four with HiGHS (mixed-integer
+programming, a clique-cover formulation: a different model and a different
+algorithm) and derives the bound a second time from HiGHS alone.  It also
+runs NetworkX's pure-Python branch-and-bound clique on w(0) and w(8) where
+that finishes within --networkx-seconds.  Exact values claimed by two solvers
+are asserted to agree.
 
 Everything else is exact integer arithmetic.  The seven representatives are
 confirmed to cover all 51 supports by computing the automorphism group of the
@@ -180,23 +183,38 @@ def w_cpsat(R, comp, subcubes, forb, m: int | None, seconds: float, workers: int
             "found": int(round(solver.ObjectiveValue())), "upper_bound": int(np.floor(solver.BestObjectiveBound() + 1e-6))}
 
 
-def w_networkx(R, comp, forb, exclude_forbidders: bool) -> int:
+def _networkx_clique(comp_sub, out):
     import networkx as nx
+    G = nx.Graph()
+    G.add_nodes_from(range(len(comp_sub)))
+    for i in range(len(comp_sub)):
+        for j in np.flatnonzero(comp_sub[i, i + 1:]):
+            G.add_edge(i, i + 1 + int(j))
+    _, weight = nx.max_weight_clique(G, weight=None)
+    out.put(int(weight))
+
+
+def w_networkx(R, comp, forb, exclude_forbidders: bool, seconds: float) -> int | None:
+    """Exact maximum clique by NetworkX's branch and bound; None if it does not finish in time."""
+    import multiprocessing as mp
     keep = np.ones(len(R), dtype=bool)
     if exclude_forbidders:
         keep[list(forb)] = False
     idx = np.flatnonzero(keep)
-    sub = comp[np.ix_(idx, idx)]
-    G = nx.Graph()
-    G.add_nodes_from(range(len(idx)))
-    for i in range(len(idx)):
-        for j in np.flatnonzero(sub[i, i + 1:]):
-            G.add_edge(i, i + 1 + int(j))
-    _, weight = nx.max_weight_clique(G, weight=None)
-    return int(weight)
+    ctx = mp.get_context("fork")
+    out = ctx.Queue()
+    proc = ctx.Process(target=_networkx_clique, args=(comp[np.ix_(idx, idx)], out))
+    proc.start()
+    proc.join(seconds)
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
+        return None
+    return out.get() if not out.empty() else None
 
 
-def w_highs(R, comp, subcubes, forb, m: int, seconds: float) -> dict:
+def w_highs(R, comp, subcubes, forb, m: int | None, seconds: float) -> dict:
+    """The same problem as w_cpsat, as a mixed-integer programme (m = None: no side constraint)."""
     from scipy.optimize import Bounds, LinearConstraint, milp
     from scipy.sparse import coo_matrix
     nR = len(R)
@@ -218,23 +236,27 @@ def w_highs(R, comp, subcubes, forb, m: int, seconds: float) -> dict:
                 covered[a, group] = True
                 rows.append(r); cols.append(a); vals.append(1)
             ub.append(1); r += 1
-    for rr, idl in forb.items():
-        for i in idl:
-            rows += [r, r]; cols += [rr, ypos[i]]; vals += [1, -1]
-            ub.append(0); r += 1
-    groups: dict[tuple, list[int]] = {}
-    for i in ids:
-        groups.setdefault(subcubes[i][0], []).append(i)
-    for members in groups.values():
-        for i in members:
-            rows.append(r); cols.append(ypos[i]); vals.append(1)
-        ub.append(m); r += 1
+    upper = np.ones(nR + len(ids))
+    if m == 0:
+        upper[list(forb)] = 0
+    elif m is not None:
+        for rr, idl in forb.items():
+            for i in idl:
+                rows += [r, r]; cols += [rr, ypos[i]]; vals += [1, -1]
+                ub.append(0); r += 1
+        groups: dict[tuple, list[int]] = {}
+        for i in ids:
+            groups.setdefault(subcubes[i][0], []).append(i)
+        for members in groups.values():
+            for i in members:
+                rows.append(r); cols.append(ypos[i]); vals.append(1)
+            ub.append(m); r += 1
     nv = nR + len(ids)
     A = coo_matrix((vals, (rows, cols)), shape=(r, nv)).tocsr()
     c = np.zeros(nv)
     c[:nR] = -1
     res = milp(c, constraints=LinearConstraint(A, -np.inf, np.array(ub, float)), integrality=np.ones(nv),
-               bounds=Bounds(0, 1), options={"time_limit": seconds})
+               bounds=Bounds(0, upper), options={"time_limit": seconds})
     dual = getattr(res, "mip_dual_bound", None)
     return {"solver": "HiGHS", "status": int(res.status),
             "found": None if res.fun is None else int(round(-res.fun)),
@@ -247,6 +269,8 @@ def main() -> int:
     ap.add_argument("--seconds", type=float, default=240.0, help="time limit per clique problem")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--cross-check", action="store_true")
+    ap.add_argument("--networkx-seconds", type=float, default=300.0,
+                    help="wall-clock limit for each NetworkX clique computation in --cross-check")
     ap.add_argument("--json-out", type=Path)
     a = ap.parse_args()
 
@@ -265,6 +289,7 @@ def main() -> int:
 
     record = {"target": TARGET, "automorphism_group_order": order, "orbits": orbits, "results": []}
     worst = 0
+    cross_ok = True
     for drop in drops:
         t0 = time.time()
         R, nR, comp, subcubes, forb = analyse(support_matrix, drop)
@@ -279,26 +304,38 @@ def main() -> int:
         bound = max(terms.values())
         res.update({"cpsat": w, "terms": terms, "layer_bound": bound, "seconds": round(time.time() - t0, 1)})
         if a.cross_check:
-            x = {"w0_networkx": w_networkx(R, comp, forb, True), "w_all_networkx": w_networkx(R, comp, forb, False),
-                 "w1_highs": w_highs(R, comp, subcubes, forb, 1, a.seconds),
-                 "w2_highs": w_highs(R, comp, subcubes, forb, 2, a.seconds)}
-            xterms = {"m=0": BETA[0] + x["w0_networkx"], "m>=3": BETA[3] + x["w_all_networkx"]}
-            for key, m in (("w1_highs", 1), ("w2_highs", 2)):
-                if x[key]["upper_bound"] is not None:
-                    xterms[f"m={m}"] = BETA[m] + x[key]["upper_bound"]
-            res["cross_check"] = {"values": x, "terms": xterms,
-                                  "layer_bound": max(xterms.values()) if len(xterms) == 4 else None}
+            x = {key: w_highs(R, comp, subcubes, forb, m, a.seconds)
+                 for key, m in (("w0", 0), ("w1", 1), ("w2", 2), ("w_all", None))}
+            ok = all(v["upper_bound"] is not None for v in x.values())
+            xterms = {"m=0": BETA[0] + x["w0"]["upper_bound"], "m=1": BETA[1] + x["w1"]["upper_bound"],
+                      "m=2": BETA[2] + x["w2"]["upper_bound"], "m>=3": BETA[3] + x["w_all"]["upper_bound"]} if ok else {}
+            nxv = {"w0": w_networkx(R, comp, forb, True, a.networkx_seconds),
+                   "w_all": w_networkx(R, comp, forb, False, a.networkx_seconds)}
+            # where two solvers both claim an exact value they must agree
+            for key in x:
+                if w[key]["status"] == "OPTIMAL" and x[key]["status"] == 0:
+                    assert w[key]["found"] == x[key]["found"], (drop, key, w[key], x[key])
+                if key in nxv and nxv[key] is not None and w[key]["status"] == "OPTIMAL":
+                    assert w[key]["found"] == nxv[key], (drop, key, w[key], nxv[key])
+            res["cross_check"] = {"highs": x, "terms": xterms, "layer_bound": max(xterms.values()) if ok else None,
+                                  "networkx": nxv}
         record["results"].append(res)
         worst = max(worst, bound)
         line = (f"drop {drop:2d} {sorted(supports[drop])}: {len(R)} directions;  "
                 f"w(0)={w['w0']['upper_bound']} w(1)<={w['w1']['upper_bound']} w(2)<={w['w2']['upper_bound']} "
                 f"w(all)={w['w_all']['upper_bound']};  layer <= {bound}")
         if a.cross_check:
-            line += f";  independent solvers: layer <= {res['cross_check']['layer_bound']}"
+            cc = res["cross_check"]
+            line += (f";  HiGHS: layer <= {cc['layer_bound']};  NetworkX: w(0)={cc['networkx']['w0']} "
+                     f"w(all)={cc['networkx']['w_all']}")
+            if cc["layer_bound"] is None or cc["layer_bound"] >= TARGET:
+                cross_ok = False
         print(line, flush=True)
 
     record["worst_layer_bound"] = worst
     record["proved"] = worst < TARGET
+    if a.cross_check:
+        record["cross_check_agrees"] = cross_ok
     if a.json_out:
         a.json_out.parent.mkdir(parents=True, exist_ok=True)
         a.json_out.write_text(json.dumps(record, indent=1) + "\n")
