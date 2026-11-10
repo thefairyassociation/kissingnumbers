@@ -48,12 +48,12 @@ exclusion.
 | …trading one axis for two new directions? | `search_ze99_aux_trade_scan.py` → [`results/ze99_aux_trade/`](results/ze99_aux_trade/REPORT.md) | None found. Numerical sampling only. |
 | …anywhere on the sphere (continuous)? | `search_ze99_aux_continuous.py` | None found. The August CI jobs all failed within two minutes. Re-run 2026-11-09 with two seeds (44 and 46 continuous runs each before the session restarted): 24 again among sampled polytope vertices; best 25-point attempt violates a constraint by 0.204. Numerical only. |
 | Does a Steiner-switch of the diamonds admit a 1155th integer vector? | `search_ze99_steiner_switch.py` → [`results/ze99_steiner_switch/`](results/ze99_steiner_switch/REPORT.md) | **No.** Exhaustive over the 8192-vector diamond shell. An earlier claim of a 2²⁶⁴ switch family was a duplicate-counting error. |
-| Delete one tetrad support (−16) and fit 177 per layer (+18)? | `search_ze99_drop_tetrad_layer.py` → [`results/ze99_drop_tetrad/`](results/ze99_drop_tetrad/REPORT.md) | **Open.** All seven orbit representatives timed out (`UNKNOWN`) on the main case after 22 minutes. |
+| Delete one tetrad support (−16) and get a 177-point layer (the two layers would need 353 between them)? | [`prove_drop_tetrad_176.py`](prove_drop_tetrad_176.py) (bound) → [`results/ze99_drop_tetrad/BOUND.json`](results/ze99_drop_tetrad/BOUND.json); `search_ze99_drop_tetrad_layer.py` (CP-SAT search) | **No — proved, given the solvers' bounds.** For each of the seven orbits of supports a layer has at most 176, 170, 176, 176, 172, 170, 172 points, so the family tops out at 800 + 2 + 2·176 = 1154: a tie at best. The argument reduces the question to four small clique problems per orbit; CP-SAT and HiGHS give the same bound independently. The original search had timed out (`UNKNOWN`) on all seven. |
 | Do the PackingStar 1146-point configurations help? | `packingstar/` → [`results/packingstar/`](results/packingstar/REPORT.md) | Both reconstructed and certified exactly (1146 < 1154). Their E6 × E7 fibre core is capped at 1008 (`fiber_core_bound/`). |
 | Sections of the Leech lattice or of Ganzhinov's 1932? Integer shells? | `search_leech_sections.py`, `search_ganzhinov_sections.py`, `search_shells.py` | At most 984. |
 | Global-linear-code constructions in the norm-8 shell of Z¹³? | `v2/search_globalcode.py`, `v2/search_gc2.py`, `v2/search_gc3.py` | Ruled out structurally: ceiling about 984, best built 760. |
 | Group orbits of PSL(2,13) / PGL(2,13)? | `v2/orbits.py` | Did not reach max cosine ≤ 1/2. |
-| Numerical optimisation of 1155 free points? | `../lib/fastriesz.c`, `../lib/campaign.py` | Best max inner product **0.506587** (needs ≤ 0.5). Not evidence either way — see the calibration discussion in `../README.md`. |
+| Numerical optimisation of 1155 free points? | `../lib/fastriesz.c`, `../lib/campaign.py` | Best max inner product **0.506587** (needs ≤ 0.5). Weak evidence at most: the same pipeline does find an 841 in dimension 12, but only once in about 1,700 good starts, and dimension 13 has had far fewer (campaign c03 produced none: the first stage melts the 1154 every time). See `../README.md`. |
 
 Other files: `v2/layers.py`, `v2/completeB.py`, `v2/greedyB.py` (layer
 decomposition and attempts to enlarge a layer; they share scratch arrays through
@@ -70,6 +70,13 @@ python3 lower_bound/lib/verify_exact.py lower_bound/dim13/configs/ze99_1154_exac
 ```bash
 python3 lower_bound/dim13/prove_joint_layer_168.py
 ```
+
+```bash
+python3 lower_bound/dim13/prove_drop_tetrad_176.py --cross-check
+```
+
+(The second needs `pip install ortools networkx` and up to an hour or so on
+four cores; the first takes a second.)
 
 ```bash
 python3 lower_bound/dim13/test_verifier.py

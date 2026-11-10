@@ -48,7 +48,7 @@ jobs:
           rows = []
           for arm in spec["arms"]:
               assert re.fullmatch(r"[A-Za-z0-9._-]{1,30}", arm["id"])
-              assert arm["init"] in ("d12-841", "d12-840", "d13-1154", "d14-1932")
+              assert arm["init"] in ("d12-841", "d12-840", "d12-841-found", "d13-1154", "d14-1932")
               assert arm["extra"] in ("file", "hypercube", "gauss")
               for k in range(int(arm["shards"])):
                   # GitHub expressions are case-insensitive: matrix.n and matrix.N would
@@ -56,6 +56,8 @@ jobs:
                   rows.append({"arm": arm["id"], "shard": k, "dim": int(arm["n"]), "points": int(arm["N"]),
                                "init": arm["init"], "extra": arm["extra"], "anti": int(arm["anti"]),
                                "screen_batch": int(arm.get("screen_batch", 10)),
+                               "start_stage": int(arm.get("start_stage", 0)),
+                               "branch_minutes": float(arm.get("branch_minutes", 4)),
                                "seed_start": int(arm["seed_base"]) + 1000000 * k})
           assert 1 <= len(rows) <= 60
           print("matrix=" + json.dumps({"include": rows}))
@@ -90,7 +92,8 @@ jobs:
           python3 lower_bound/lib/campaign.py "$RUNNER_TEMP/out" \
             --n ${{ matrix.dim }} --N ${{ matrix.points }} --init "$RUNNER_TEMP/init.txt" \
             --extra ${{ matrix.extra }} --anti ${{ matrix.anti }} \
-            --screen-batch ${{ matrix.screen_batch }} \
+            --screen-batch ${{ matrix.screen_batch }} --start-stage ${{ matrix.start_stage }} \
+            --branch-minutes-per-root ${{ matrix.branch_minutes }} \
             --seed-start ${{ matrix.seed_start }} --hours ${{ needs.plan.outputs.hours }} \
             --workers "$(nproc --all)"   # plain nproc obeys OMP_NUM_THREADS
       - name: Upload shard result

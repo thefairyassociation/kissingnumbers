@@ -55,6 +55,11 @@ solvers' optimality / bound claims.  The second is why --cross-check exists.
 usage:
     python3 lower_bound/dim13/prove_drop_tetrad_176.py [--cross-check] [--seconds 240]
         [--drops 0 1 4 5 8 11 19] [--json-out FILE]
+    python3 lower_bound/dim13/prove_drop_tetrad_176.py --merge A.json B.json ... [--json-out FILE]
+
+The orbits are independent, so they can be run separately with --drops and
+their records combined with --merge.  A run that does not treat every orbit
+says so and does not claim the full statement.
 Needs numpy and ortools; --cross-check also needs networkx and scipy.
 """
 from __future__ import annotations
@@ -272,7 +277,11 @@ def main() -> int:
     ap.add_argument("--networkx-seconds", type=float, default=300.0,
                     help="wall-clock limit for each NetworkX clique computation in --cross-check")
     ap.add_argument("--json-out", type=Path)
+    ap.add_argument("--merge", type=Path, nargs="+", metavar="JSON",
+                    help="combine records written by separate --drops runs instead of computing anything")
     a = ap.parse_args()
+    if a.merge:
+        return merge(a.merge, a.json_out)
 
     original = generate_ab()
     masks, support_matrix = drop_search.tetrad_supports(original)
@@ -288,8 +297,6 @@ def main() -> int:
         print("treating one support per orbit covers all 51 deletions")
 
     record = {"target": TARGET, "automorphism_group_order": order, "orbits": orbits, "results": []}
-    worst = 0
-    cross_ok = True
     for drop in drops:
         t0 = time.time()
         R, nR, comp, subcubes, forb = analyse(support_matrix, drop)
@@ -320,7 +327,6 @@ def main() -> int:
             res["cross_check"] = {"highs": x, "terms": xterms, "layer_bound": max(xterms.values()) if ok else None,
                                   "networkx": nxv}
         record["results"].append(res)
-        worst = max(worst, bound)
         line = (f"drop {drop:2d} {sorted(supports[drop])}: {len(R)} directions;  "
                 f"w(0)={w['w0']['upper_bound']} w(1)<={w['w1']['upper_bound']} w(2)<={w['w2']['upper_bound']} "
                 f"w(all)={w['w_all']['upper_bound']};  layer <= {bound}")
@@ -328,24 +334,59 @@ def main() -> int:
             cc = res["cross_check"]
             line += (f";  HiGHS: layer <= {cc['layer_bound']};  NetworkX: w(0)={cc['networkx']['w0']} "
                      f"w(all)={cc['networkx']['w_all']}")
-            if cc["layer_bound"] is None or cc["layer_bound"] >= TARGET:
-                cross_ok = False
         print(line, flush=True)
 
+    return finish(record, orbits, a.json_out, a.cross_check)
+
+
+def finish(record: dict, orbits: list, json_out: Path | None, cross_check: bool) -> int:
+    """Summarise a record: the claim covers all 51 deletions only if every orbit was treated."""
+    results = sorted(record["results"], key=lambda r: r["drop"])
+    record["results"] = results
+    treated = {r["drop"] for r in results}
+    complete = all(any(d in treated for d in orb) for orb in orbits)
+    worst = max(r["layer_bound"] for r in results)
     record["worst_layer_bound"] = worst
-    record["proved"] = worst < TARGET
-    if a.cross_check:
-        record["cross_check_agrees"] = cross_ok
-    if a.json_out:
-        a.json_out.parent.mkdir(parents=True, exist_ok=True)
-        a.json_out.write_text(json.dumps(record, indent=1) + "\n")
-    if worst < TARGET:
-        print(f"\nPROVED: after deleting any one tetrad support, a half-height layer from this family has at most "
-              f"{worst} points.\nA layer of {TARGET} would be needed to pass 1154; the most this family can give is "
-              f"800 + 2 + 2*{worst} = {802 + 2 * worst}.")
+    record["covers_all_orbits"] = complete
+    record["proved"] = complete and worst < TARGET
+    if cross_check:
+        record["cross_check_agrees"] = all(
+            r.get("cross_check", {}).get("layer_bound") is not None and r["cross_check"]["layer_bound"] < TARGET
+            for r in results)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps(record, indent=1) + "\n")
+    if worst >= TARGET:
+        print(f"\nNOT PROVED: the bound is {worst}, which does not exclude {TARGET}.")
+        return 1
+    if not complete:
+        print(f"\nPARTIAL: for the support(s) treated ({sorted(treated)}) the layer has at most {worst} points; "
+              f"not every orbit was treated, so this run alone does not cover all 51 deletions.")
         return 0
-    print(f"\nNOT PROVED: the bound is {worst}, which does not exclude {TARGET}.")
-    return 1
+    print(f"\nPROVED: after deleting any one tetrad support, a half-height layer from this family has at most "
+          f"{worst} points.\nA layer of {TARGET} would be needed to pass 1154; the most this family can give is "
+          f"800 + 2 + 2*{worst} = {802 + 2 * worst}.")
+    return 0
+
+
+def merge(paths: list[Path], json_out: Path | None) -> int:
+    """Combine per-orbit records written by separate runs into one."""
+    parts = [json.loads(p.read_text()) for p in paths]
+    first = parts[0]
+    record = {"target": first["target"], "automorphism_group_order": first["automorphism_group_order"],
+              "orbits": first["orbits"], "results": []}
+    seen = set()
+    for part in parts:
+        assert part["target"] == TARGET and part["orbits"] == first["orbits"], "records are for different problems"
+        for r in part["results"]:
+            assert r["drop"] not in seen, f"support {r['drop']} appears twice"
+            seen.add(r["drop"])
+            record["results"].append(r)
+    for r in sorted(record["results"], key=lambda r: r["drop"]):
+        cc = r.get("cross_check")
+        print(f"drop {r['drop']:2d} {r['support']}: {r['directions']} directions;  layer <= {r['layer_bound']}"
+              + (f";  HiGHS: layer <= {cc['layer_bound']}" if cc else ""))
+    return finish(record, first["orbits"], json_out, all("cross_check" in r for r in record["results"]))
 
 
 if __name__ == "__main__":

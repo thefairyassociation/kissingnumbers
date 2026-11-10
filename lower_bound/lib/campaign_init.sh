@@ -4,6 +4,7 @@
 #
 #   d12-841   classical 840 (Clebsch / Leech-Sloane) + one hypercube vertex, 841 rows
 #   d12-840   the same 840 alone (use with campaign.py --extra hypercube|gauss)
+#   d12-841-found  the 841 found by campaign c03 (use with --extra, for 842 points)
 #   d13-1154  Zinoviev-Ericson 1154 alone (use with --extra hypercube|gauss)
 #   d14-1932  Ganzhinov 1932 alone (use with --extra hypercube|gauss)
 set -euo pipefail
@@ -12,6 +13,7 @@ case "$kind" in
   d12-841)  python3 lower_bound/lib/seed841.py "$out" --mode hypercube ;;
   d12-840)  python3 lower_bound/lib/seed841.py "$out.tmp" --mode hypercube
             head -n 840 "$out.tmp" > "$out"; rm -f "$out.tmp" ;;
+  d12-841-found) grep -v '^#' lower_bound/dim12/configs/found_841_c03.txt > "$out" ;;
   d13-1154) python3 lower_bound/lib/tofloat.py lower_bound/dim13/configs/ze99_1154_exact.json "$out" 0 ;;
   d14-1932) python3 - "$out" <<'PY'
 import json, sys, math

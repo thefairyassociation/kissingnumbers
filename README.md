@@ -14,7 +14,8 @@ This repository works on both ends of that gap, in two separate trees:
 | [`lower_bound/`](lower_bound/README.md) | can we *build* more spheres? | an explicit configuration, checked in exact arithmetic |
 | [`upper_bound/`](upper_bound/README.md) | can we *prove* fewer are possible? | a certificate that an exact verifier accepts |
 
-**No record has been beaten in either direction.** For the short,
+**No record has been beaten in either direction.** The search here has
+re-found the dimension-12 record (841) on its own, which ties it. For the short,
 plain-English account of what has been done and what is still open, read
 [`STATUS.md`](STATUS.md).
 
@@ -27,7 +28,7 @@ Records are from [Henry Cohn's table](https://cohn.mit.edu/kissing-numbers), fet
 | 3 | 12 | 12 | upper bound 12, exact three-point (semidefinite) certificate |
 | 4 | 24 | 24 | upper bound 24, exact three-point (semidefinite) certificate |
 | 8 | 240 | 240 | upper bound 240, exact LP certificate |
-| 12 | 841 | 1355 | lower 841 (the published configuration, certified exactly here); upper 1416 (LP) |
+| 12 | 841 | 1355 | lower 841 (found independently by the search here and certified exactly; the published configuration is certified too); upper 1416 (LP) |
 | 13 | 1154 | 2064 | lower 1154 (reproduction, exact); upper 2233 (LP) |
 | 14 | 1932 | 3174 | lower 1932 (reproduction, exact); upper 3492 (LP) |
 | 24 | 196560 | 196560 | upper bound 196560, exact LP certificate |

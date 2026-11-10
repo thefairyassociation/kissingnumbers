@@ -65,8 +65,9 @@ def screen(a, roots_dir: Path, lo: int, hi: int) -> list[dict]:
     """Run seeds lo..hi-1 through the first two stages; returns one record per seed."""
     cmd = [str(FASTRIESZ), str(a.n), str(a.N), str(a.init), str(roots_dir),
            "--extra", a.extra, "--adam", a.adam, "--scale", repr(a.scale),
-           "--jit", repr(a.jit), "--stages", "2", "--screen-anti", f"1:{a.anti}",
-           "--save-stage", "2", "--keep", "0", "--seeds", str(lo), str(hi)]
+           "--jit", repr(a.jit), "--start-stage", str(a.start_stage), "--stages", str(a.start_stage + 2),
+           "--screen-anti", f"{a.start_stage + 1}:{a.anti}",
+           "--save-stage", str(a.start_stage + 2), "--keep", "0", "--seeds", str(lo), str(hi)]
     r = subprocess.run(cmd, capture_output=True, text=True, env=ENV1)
     out = []
     for line in r.stdout.splitlines():
@@ -94,6 +95,9 @@ def main() -> int:
     ap.add_argument("--jit", type=float, default=0.005)
     ap.add_argument("--anti", type=int, default=300,
                     help="near-antipodal pairs required after stage 1 for a seed to count as a root")
+    ap.add_argument("--start-stage", type=int, default=0,
+                    help="schedule stage at which fresh seeds enter (0 = exponent 8, 1 = 16, 2 = 32).  The "
+                         "antipodal screen is applied after that stage and roots are saved one stage later.")
     ap.add_argument("--screen-batch", type=int, default=10, help="seeds per worker per screening round")
     ap.add_argument("--branch-minutes-per-root", type=float, default=4.0,
                     help="CPU-minutes of branching spent on each new root")
@@ -184,7 +188,7 @@ def main() -> int:
                 screened += 1
                 b = min(rec["anti"] // 50 * 50, 600) if rec["anti"] >= 0 else -1
                 anti_hist[b] = anti_hist.get(b, 0) + 1
-                state = roots_dir / f"state_n{a.n}_N{a.N}_s{rec['seed']}_k2.txt"
+                state = roots_dir / f"state_n{a.n}_N{a.N}_s{rec['seed']}_k{a.start_stage + 2}.txt"
                 if rec["status"] == "done" and state.exists():
                     rec["state"] = state.name
                     new_roots.append(rec)
@@ -197,7 +201,7 @@ def main() -> int:
         bdir = out / f"branch_r{rnd:04d}"
         states = [str(roots_dir / r["state"]) for r in new_roots]
         cmd = [sys.executable, str(BRANCH), states[0], str(bdir), "--n", str(a.n), "--N", str(a.N),
-               "--root-stage", "2", "--workers", str(a.workers), "--hours", repr(hours),
+               "--root-stage", str(a.start_stage + 2), "--workers", str(a.workers), "--hours", repr(hours),
                "--scale", repr(a.scale), "--adam", a.adam, "--seed", str(a.seed_start // 1000 + rnd),
                "--root-prob", "0.6"]
         for s in states[1:]:
@@ -241,7 +245,7 @@ def main() -> int:
 
     summary = {
         "n": a.n, "N": a.N, "init": a.init.name, "extra": a.extra, "adam": a.adam, "scale": a.scale,
-        "jit": a.jit, "anti_threshold": a.anti, "seed_start": a.seed_start, "seed_end": next_seed,
+        "jit": a.jit, "start_stage": a.start_stage, "anti_threshold": a.anti, "seed_start": a.seed_start, "seed_end": next_seed,
         "workers": a.workers, "hours": a.hours, "elapsed_seconds": round(time.time() - t0, 1),
         "screened": screened, "roots": len(roots),
         "root_rate": (len(roots) / screened) if screened else None,

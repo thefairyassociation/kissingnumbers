@@ -264,15 +264,19 @@ provably exists, since Takhanov et al. reached 0.499999937751:
 | Riesz continuation + Armijo line search (`KISS_SOLVER=gd`, the default) | **0.50519** | 0.5107 |
 | BLAS engine + Adam on the published schedule (`KISS_SOLVER=adam`) | **0.500477** | not run |
 | `fastriesz` + fingerprint screen + branching + minimax polish (2026-10-02) | **0.5001014** | 0.506587 |
+| the same pipeline as a campaign, random extra point, 1,685 re-crystallised roots (2026-11-10) | **0.4999968 — certified** | no usable starts yet |
 
 The Adam row is the newer calibration; see `docs/CALIBRATION_optimizer.md` for how it
 was measured and `lib/FAITHFUL_841.md` for the opt-in source-faithful protocol.
-Both remain above 0.5.
+Those two were above 0.5; the last row is the first to get below (see the
+2026-11-10 update further down).
 
-The two columns are close, and the left one is a case where the answer is *yes*.
-So the optimiser here simply cannot resolve the question: a dimension-13
-near-miss at 0.5088 is **not** evidence that 1155 points fail to exist. The
-structural results above stand on their own; the numerical ones do not.
+Until that last row the two columns were close, and the left one is a case
+where the answer is *yes*. So a dimension-13 near-miss at 0.5088 was **not**
+evidence that 1155 points fail to exist, and it still is not much: the
+dimension-12 success took about 1,700 starts of a kind that dimension 13 has
+not produced at all. The structural results above stand on their own; the
+numerical ones do not.
 
 ### 2026-10-02 update: what the calibration now says
 
@@ -317,6 +321,42 @@ the short version:
   reached for 1155 points in R^13 (previously 0.5088), but a uniformly strained family like dimension 12's 0.5042, not a
   promising one.
 
+### 2026-11-10 update: the calibration is passed
+
+Campaign `c03-tail` ([`campaigns/c03-tail/`](campaigns/c03-tail/README.md))
+ran the recipe above at scale: 16 five-hour shards, 320 CPU-hours, 48,160
+first-stage screens, 1,685 re-crystallised roots, each branched for about four
+minutes. The one change from October is that the extra point is a *random*
+hypercube vertex direction for every seed instead of a fixed one.
+
+* **Result: an 841-point configuration with max inner product 0.4999968,
+  certified.** `certify_float.py` proves all 353,220 pairs are at most
+  1/2 − 3·10⁻⁶ in exact integer arithmetic; it was run on the runner, again by
+  the collect job, and again locally. The file is
+  [`dim12/configs/found_841_c03.txt`](dim12/configs/found_841_c03.txt), the
+  certificate `found_841_c03_certified.json`. A sibling branch of the same
+  round gave a second certified output (0.4999972), a close variant.
+* **This equals the record (841). It is not a new one.**
+* **It is a different 841.** Fingerprint against the published coordinates:
+
+  | | max inner product | near-antipodal pairs (cos < −0.99) | pairs above 0.4999 |
+  | --- | ---: | ---: | ---: |
+  | published (Takhanov–Assylbekov–Yun) | 0.49999994 | 387 | 9,116 |
+  | found here | 0.49999680 | 378 | 8,022 |
+
+  The pair counts are invariant under rotation and relabelling, so the two
+  are not congruent. The margin below 1/2 is about fifty times larger here.
+* **How rare.** Final values by root, c02 and c03 together (2,043 roots with a
+  random extra point): one below 1/2, three more within 10⁻⁵ above it
+  (0.50000027, 0.5000060, 0.5000071), the rest on the 0.5001 floor or
+  higher. The fixed extra point of October and of c02's first arm gave nothing
+  below 0.5000897 in 1,200 roots.
+* **Dimension 13 got nothing from the same recipe**: 13,200 screens, no root.
+  After `s = 8` the 1154 keeps 50–150 of its 577 antipodal pairs and never
+  re-forms (threshold was 250). Entering at `s = 16` keeps 431–464 pairs and
+  entering at `s = 32` keeps 566–577. `campaign.py --start-stage 1|2` now
+  screens and branches from those entries; campaign c04 runs both.
+
 A second flaw the calibration exposed: with a seed file the Riesz run was fully
 deterministic, so two different "restarts" returned bit-identical answers
 (0.50518677246961574 twice). Restarts now jitter the starting configuration
@@ -338,7 +378,7 @@ optimiser's own claim.
 | 3 | Enlarging the 1/3-code layer B | impossible with A fixed (0.7232 / 0.8327); 169-point 1/3-codes in R^12 not found numerically |
 | 3b | A 169-point layer drawn from the 4248 primitive directions of magnitude <= 2 compatible with the tetrads | **proved impossible**: the maximum is exactly 168 (`dim13/prove_joint_layer_168.py`; the CP-SAT search for it had timed out) |
 | 3c | A 25th "auxiliary" (irrational) direction per layer | exhaustive among ternary and magnitude-<=2 directions: exactly 24 exist; the continuous search (two seeds, 44 and 46 runs before the session restarted, 2026-11-09) found 24 again among the sampled polytope vertices and got no closer to 25 than a constraint violation of 0.204 |
-| 3d | Delete one tetrad support and fit 177 per layer | **open**: all seven orbit representatives timed out (`UNKNOWN`) |
+| 3d | Delete one tetrad support and fit a 177-point layer | **proved impossible, given the solvers' bounds**: at most 176 per layer in every one of the seven orbits, so at most 1154 in total (`dim13/prove_drop_tetrad_176.py`; CP-SAT and HiGHS agree; the original CP-SAT search had timed out) |
 | 3e | Steiner-switch of the diamonds plus one integer vector | exhaustive over the 8192-vector shell: none |
 | 4 | Enlarging A with B fixed | tetrads are `A(12,4,4)`-optimal; no vector of the region admits a 52nd 4-subset, and triples/5-sets/6-sets all violate `sum_{i in S}|b_i| <= 2/sqrt3` |
 | 5 | Norm-8 shell of Z^13 (D-roots + weight-8) | ruled out, see section 3; ceiling ~984, best built 760 |
@@ -451,13 +491,25 @@ python3 lower_bound/lib/campaign.py /tmp/out --n 12 --N 841 --init /tmp/init.txt
     --seed-start 1 --hours 0.2 --workers 4
 ```
 
-Records of finished campaigns are in [`campaigns/`](campaigns/).
+Records of finished campaigns are in [`campaigns/`](campaigns/):
+
+| campaign | what it ran | outcome |
+| --- | --- | --- |
+| `c01-smoke` | one short shard per arm | plumbing test only |
+| `c02-scale` | dim 12 / 841, fixed and random extra point; dim 14 / 1933 | best 0.5000060 (dim 12), 0.518981 (dim 14); nothing certified |
+| `c03-tail` | dim 12 / 841, random extra point, 16 shards; dim 13 / 1155, 4 shards | **841 found and certified** (0.4999968); dim 13: no roots |
+| `c04-beyond` | dim 12 / **842** from the found 841; dim 13 / 1155 entering at `s = 16` and `s = 32` | started 2026-11-10 |
 
 ## If someone picks this up
 
 The three things that look most worth attacking next, in order:
 
-1. **Finish the calibration with many re-crystallised roots.**  *(Updated 2026-10-02;
+1. **Done 2026-11-10: the calibration passed** (see the update above). What
+   follows is the October text, kept for the record. The open item it leaves
+   is the dimension-13 analogue: a way to get re-crystallised starts from the
+   1154, which melts and never re-forms.
+
+   *Finish the calibration with many re-crystallised roots.*  *(Updated 2026-10-02;
    the original item asked for "a better optimiser", and the 2026-08 notes
    showed L-BFGS was a regression.)*  The machinery now exists and is fast:
    screen fresh starts on the antipodal-pair count after `s = 8`

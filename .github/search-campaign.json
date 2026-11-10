@@ -1,26 +1,42 @@
 {
- "name": "c03-tail",
+ "name": "c04-beyond",
  "hours": 5.0,
  "arms": [
   {
-   "id": "d12-cube",
+   "id": "d12-842",
    "n": 12,
-   "N": 841,
-   "init": "d12-840",
+   "N": 842,
+   "init": "d12-841-found",
    "extra": "hypercube",
    "anti": 300,
-   "shards": 16,
-   "seed_base": 500000000
+   "shards": 6,
+   "seed_base": 800000000
   },
   {
-   "id": "d13-cube",
+   "id": "d13-s16",
    "n": 13,
    "N": 1155,
    "init": "d13-1154",
    "extra": "hypercube",
-   "anti": 250,
+   "anti": 380,
+   "start_stage": 1,
+   "screen_batch": 3,
+   "branch_minutes": 8,
+   "shards": 10,
+   "seed_base": 810000000
+  },
+  {
+   "id": "d13-s32",
+   "n": 13,
+   "N": 1155,
+   "init": "d13-1154",
+   "extra": "hypercube",
+   "anti": 500,
+   "start_stage": 2,
+   "screen_batch": 3,
+   "branch_minutes": 8,
    "shards": 4,
-   "seed_base": 600000000
+   "seed_base": 830000000
   }
  ]
 }

@@ -30,7 +30,8 @@ and 844-point spherical codes with max inner products \(0.50090\) and \(0.50440\
 | 756 | Coxeter–Todd \(K_{12}\) minima | yes, \(\mathbb{Q}(\sqrt{3})\) | lattice kissing number |
 | 756 | laminated \(\Lambda_{12}\) | lattice | same kissing number as \(K_{12}\), different lattice |
 | 840 | Leech–Sloane / Clebsch \(48\)-system + \(K_6\) bridges | yes, \(\mathbb{Q}(\sqrt{2})\) | two \(60\)-point blocks in complementary \(\mathbb{R}^6\) plus 720 bridges |
-| 841 | Takhanov–Assylbekov–Yun | numerical only | not claimed here as an exact certificate |
+| 841 | Takhanov–Assylbekov–Yun | numerical, certified | the published coordinates pass `../lib/certify_float.py` (`configs/takhanov841_certified.json`) |
+| 841 | found by campaign c03 (2026-11-10) | numerical, certified | `configs/found_841_c03.txt`; max inner product 0.4999968; not congruent to the published one (378 near-antipodal pairs against 387) |
 
 ### 840 structure (Leech–Sloane 1971, flexibility: arXiv:2606.18984)
 
@@ -50,6 +51,24 @@ Eisenstein lattice \(A_6^{(2)}\) via Construction A on the hexacode
 — file `K12.html`). Real form has \(756\) minima of norm \(4\).
 
 Related: Nordstrom–Robinson / hexacode, Mitchell group \(6.\mathrm{PSU}_4(\mathbb{F}_3).2\).
+
+## The 841 found here (2026-11-10)
+
+`configs/found_841_c03.txt` is an 841-point configuration produced by this
+repository's own search (classical 840 plus one random hypercube-vertex
+direction, Riesz-energy continuation, branching, minimax polish; campaign
+[`../campaigns/c03-tail/`](../campaigns/c03-tail/README.md)). It ties the
+record and does not beat it.
+
+```bash
+python3 lower_bound/lib/certify_float.py lower_bound/dim12/configs/found_841_c03.txt
+```
+
+proves in exact integer arithmetic that the normalised points have all
+353,220 pairwise inner products at most 1/2 − 3·10⁻⁶
+(`configs/found_841_c03_certified.json`). How it was found and how it differs
+from the published configuration is in [`../README.md`](../README.md)
+("2026-11-10 update: the calibration is passed").
 
 ## What cannot be a record
 

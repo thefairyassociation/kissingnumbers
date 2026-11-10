@@ -69,7 +69,7 @@ one family of results is weaker than its title suggests:
 | --- | --- | --- |
 | joint 169-point layer (`search_ze99_joint_layer.py`) | #7 | CI ran 25 minutes and failed in the commit step; nothing was recorded. **Now settled without a search:** `lower_bound/dim13/prove_joint_layer_168.py` proves the maximum is 168. |
 | 25-point auxiliary layer (`search_ze99_aux_continuous.py`, matrix) | #9 | all four CI jobs failed within two minutes; nothing was recorded. Not re-run. |
-| one-tetrad deletion, 177-point layer | #8 | all seven orbit representatives finished, but the main ("signed") case ended `UNKNOWN` at the 22-minute time limit in every one. These are **time-outs, not exclusions**. |
+| one-tetrad deletion, 177-point layer | #8 | all seven orbit representatives finished, but the main ("signed") case ended `UNKNOWN` at the 22-minute time limit in every one. Those were time-outs, not exclusions. **Now settled by a bound instead of a search:** `lower_bound/dim13/prove_drop_tetrad_176.py` shows a layer has at most 176 points after any deletion, so this family cannot pass 1154. |
 | Steiner-switch family, integer shell | #9 | exhaustive over 8192 candidates: no 1155-point witness in that family. |
 | PackingStar 1146 reconstruction | #5 | exact rational certificates for both published 1146-point configurations (they do not beat 1154). |
 
