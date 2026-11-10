@@ -71,6 +71,33 @@ class RunnerIntegrityTests(unittest.TestCase):
         for key in actual.keys() - {"metadata_json"}:
             np.testing.assert_array_equal(terminal[key], actual[key], err_msg=key)
 
+    def test_resume_finishes_a_stage_whose_last_update_was_checkpointed(self):
+        """A periodic checkpoint taken on the last update of a stage has
+        in_stage == stage length.  If the process dies before the stage
+        boundary is processed, a resume must still process it, also when no
+        optimiser update remains (the very last update of the run)."""
+        whole = run.run_search(self.config("whole"))
+        self.assertTrue(whole["full_schedule"])
+        real_write = run._write_checkpoint
+
+        def write_then_die(path, **kwargs):
+            real_write(path, **kwargs)
+            if kwargs["updates_total"] == 8 and kwargs["in_stage"] == 2:
+                raise KeyboardInterrupt("simulated kill after the periodic checkpoint")
+
+        with patch.object(run, "_write_checkpoint", side_effect=write_then_die):
+            with self.assertRaises(KeyboardInterrupt):
+                run.run_search(self.config(checkpoint_every=1))
+        _, metadata = self.snapshot()
+        self.assertEqual(metadata["cursor"], dict(macro=1, stage=1, in_stage=2, updates_total=8))
+        finished = run.run_search(self.config(checkpoint_every=1, resume=True))
+        self.assertTrue(finished["full_schedule"])
+        self.assertEqual(finished["cursor"], dict(macro=2, stage=0, in_stage=0))
+        actual, _ = self.snapshot()
+        expected, _ = self.snapshot("whole")
+        for key in actual.keys() - {"metadata_json"}:
+            np.testing.assert_array_equal(actual[key], expected[key], err_msg=key)
+
     def test_interrupted_atomic_replace_preserves_previous_checkpoint(self):
         run.run_search(self.config(max_updates=1))
         path = self.directory / "split.npz"

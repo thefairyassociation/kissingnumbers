@@ -812,7 +812,15 @@ def run_search(config: RunConfig) -> dict[str, Any]:
     expected_shape = (config.batch_size, N_POINTS, DIMENSION)
     last_batch_metrics: list[dict[str, Any]] = []
     current_batch_metrics: list[dict[str, Any]] = []
-    while (updates_total < requested_updates or stage >= len(schedule)) and macro < config.macro_repeats:
+
+    def boundary_pending() -> bool:
+        # A periodic checkpoint written on the last update of a stage records
+        # in_stage == stage length.  The boundary below must still be
+        # processed after a resume from it, even if no update remains.
+        return stage < len(schedule) and in_stage == schedule[stage][1]
+
+    while ((updates_total < requested_updates or stage >= len(schedule) or boundary_pending())
+           and macro < config.macro_repeats):
         if stage >= len(schedule):
             # Accept an intermediate stage-13 cursor (for example, a process
             # stopped after writing that boundary) and canonicalise it before
