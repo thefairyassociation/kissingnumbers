@@ -1,0 +1,16 @@
+{
+ "name": "c05-two-points",
+ "hours": 5.0,
+ "arms": [
+  {
+   "id": "d12-842-melt",
+   "n": 12,
+   "N": 842,
+   "init": "d12-841",
+   "extra": "hypercube",
+   "anti": 300,
+   "shards": 20,
+   "seed_base": 900000000
+  }
+ ]
+}

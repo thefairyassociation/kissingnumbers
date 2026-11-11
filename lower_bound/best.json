@@ -1,0 +1,20 @@
+{
+  "summary": "no kissing-number record beaten; best exactly verified counts (12: an 841 found here by search and certified, equal to the record; 13, 14: reproductions)",
+  "per_dimension": {
+    "12": 841,
+    "13": 1154,
+    "14": 1932
+  },
+  "records": {
+    "12": 841,
+    "13": 1154,
+    "14": 1932
+  },
+  "records_source": "https://cohn.mit.edu/kissing-numbers (fetched 2026-08-21; re-checked 2026-11-09, unchanged)",
+  "notes": {
+    "12": "841 = configuration found by campaign c03 on 2026-11-10 from the classical 840 plus one point (dim12/configs/found_841_c03.txt, certified by lib/certify_float.py with margin 3e-6); it equals the record. The published Takhanov-Assylbekov-Yun configuration is certified here too (dim12/configs/takhanov841_certified.json); the two are not congruent.",
+    "13": "1154 = Zinoviev-Ericson reproduction (exact, Q(sqrt 3))",
+    "14": "1932 = Ganzhinov reproduction (exact, integer)"
+  },
+  "updated": "2026-11-10"
+}

@@ -1,0 +1,14 @@
+{
+  "dimension": 13,
+  "count": 1154,
+  "verified_exactly": true,
+  "field": "Q(sqrt(3))",
+  "max_off_diagonal": "8/16 = 1/2",
+  "tight_pairs": 59640,
+  "path": "lower_bound/dim13/configs/ze99_1154_exact.json",
+  "method": "Zinoviev-Ericson 1999 reproduction: 816 tetrads + 288 diamonds + 48 sqrt3-irrationals + 2 poles",
+  "beats_live_record": false,
+  "live_record": 1154,
+  "note": "equals the record; hole search gives max||u|| = 0.901388 < 1 and the configuration is locally jammed",
+  "timestamp": "2026-08-21T23:25:25Z"
+}

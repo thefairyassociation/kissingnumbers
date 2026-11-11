@@ -1,0 +1,12 @@
+# Per-round output of the long-running search loops.  These are appended to
+# continuously by background processes, so they are permanently dirty in a
+# working tree; the meaningful outcomes are summarised into progress.log and any
+# actual success is written as HIT_*.txt (which IS tracked).
+riesz_d13*.log
+shake_d13*.log
+d14_fano.log
+d14_gcode.log
+calib*.log
+gd_blas.log
+spend_speedup.log
+headtohead.txt

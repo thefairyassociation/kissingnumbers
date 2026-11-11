@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Build products: every C tool is rebuilt by `make -C lower_bound/lib`.
+lower_bound/lib/riesz
+lower_bound/lib/riesz2
+lower_bound/lib/fastriesz
+lower_bound/lib/hingepol
+lower_bound/lib/mis8
+lower_bound/lib/clique
+lower_bound/lib/gclique
+lower_bound/lib/addable
+lower_bound/lib/opt
+lower_bound/lib/opt2
+lower_bound/lib/signmis
+
+# Generated research logs are run artifacts, not source-controlled results.
+lower_bound/dim13/**/*.log
+lower_bound/dim13/packingstar/workflow_output.txt
+
+# Scratch output of long searches (summaries go to progress logs, hits to HIT_*).
+lower_bound/runs/
+upper_bound/runs/

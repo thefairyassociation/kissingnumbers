@@ -1,0 +1,175 @@
+{
+ "campaign": "c01-smoke",
+ "run_url": "https://github.com/thefairyassociation/kissingnumbers/actions/runs/42698953799",
+ "spec": {
+  "name": "c02-scale",
+  "hours": 5.0,
+  "arms": [
+   {
+    "id": "d12-file",
+    "n": 12,
+    "N": 841,
+    "init": "d12-841",
+    "extra": "file",
+    "anti": 300,
+    "shards": 11,
+    "seed_base": 100000000
+   },
+   {
+    "id": "d12-cube",
+    "n": 12,
+    "N": 841,
+    "init": "d12-840",
+    "extra": "hypercube",
+    "anti": 300,
+    "shards": 4,
+    "seed_base": 200000000
+   },
+   {
+    "id": "d13-cube",
+    "n": 13,
+    "N": 1155,
+    "init": "d13-1154",
+    "extra": "hypercube",
+    "anti": 250,
+    "shards": 3,
+    "seed_base": 300000000
+   },
+   {
+    "id": "d14-cube",
+    "n": 14,
+    "N": 1933,
+    "init": "d14-1932",
+    "extra": "hypercube",
+    "anti": 600,
+    "shards": 2,
+    "seed_base": 400000000,
+    "screen_batch": 2
+   }
+  ]
+ },
+ "arms": {
+  "d12-file": {
+   "n": 12,
+   "N": 841,
+   "init": "init.txt",
+   "extra": "file",
+   "shards": 1,
+   "screened": 40,
+   "roots": 1,
+   "cpu_hours": 0.4,
+   "anti_histogram": {
+    "50": 2,
+    "100": 24,
+    "150": 12,
+    "200": 1,
+    "400": 1
+   },
+   "best": {
+    "max": 0.50029914229934,
+    "shard": 0,
+    "file": "cand_n12_N841_s20001000003.txt"
+   },
+   "certified_hits": [],
+   "uncertified_below_half": [],
+   "root_rate": 0.025
+  },
+  "d14-cube": {
+   "n": 14,
+   "N": 1933,
+   "init": "init.txt",
+   "extra": "hypercube",
+   "shards": 1,
+   "screened": 40,
+   "roots": 0,
+   "cpu_hours": 1.4,
+   "anti_histogram": {
+    "600": 40
+   },
+   "best": null,
+   "certified_hits": [],
+   "uncertified_below_half": [],
+   "root_rate": 0.0
+  }
+ },
+ "shards": [
+  {
+   "n": 12,
+   "N": 841,
+   "init": "init.txt",
+   "extra": "file",
+   "adam": "manifold",
+   "scale": 3.4285714,
+   "jit": 0.005,
+   "anti_threshold": 300,
+   "seed_start": 20000000,
+   "seed_end": 20000040,
+   "workers": 4,
+   "hours": 0.12,
+   "elapsed_seconds": 315.7,
+   "screened": 40,
+   "roots": 1,
+   "root_rate": 0.025,
+   "anti_histogram": {
+    "50": 2,
+    "100": 24,
+    "150": 12,
+    "200": 1,
+    "400": 1
+   },
+   "root_seeds": [
+    [
+     20000015,
+     404
+    ]
+   ],
+   "best": {
+    "max": 0.50029914229934,
+    "file": "cand_n12_N841_s20001000003.txt",
+    "round": 1
+   },
+   "hits": [],
+   "certified_below_half": false,
+   "arm": "d12-file",
+   "shard": 0,
+   "kept": [
+    [
+     0.500299142299,
+     "cand_n12_N841_s20001000003.txt"
+    ]
+   ]
+  },
+  {
+   "n": 14,
+   "N": 1933,
+   "init": "init.txt",
+   "extra": "hypercube",
+   "adam": "manifold",
+   "scale": 3.4285714,
+   "jit": 0.005,
+   "anti_threshold": 600,
+   "seed_start": 40000000,
+   "seed_end": 40000040,
+   "workers": 4,
+   "hours": 0.12,
+   "elapsed_seconds": 1260.2,
+   "screened": 40,
+   "roots": 0,
+   "root_rate": 0.0,
+   "anti_histogram": {
+    "600": 40
+   },
+   "root_seeds": [],
+   "best": {
+    "max": 9.0,
+    "file": null
+   },
+   "hits": [],
+   "certified_below_half": false,
+   "arm": "d14-cube",
+   "shard": 0,
+   "kept": []
+  }
+ ],
+ "any_certified_hit": false
+}

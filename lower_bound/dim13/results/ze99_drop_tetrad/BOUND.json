@@ -1,0 +1,721 @@
+{
+ "target": 177,
+ "automorphism_group_order": 12,
+ "orbits": [
+  [
+   0,
+   7,
+   9,
+   13,
+   18,
+   21,
+   23,
+   33,
+   36,
+   41,
+   47,
+   49
+  ],
+  [
+   1,
+   2,
+   3,
+   30,
+   45,
+   50
+  ],
+  [
+   4,
+   6,
+   27,
+   28,
+   43,
+   44
+  ],
+  [
+   5,
+   29,
+   42
+  ],
+  [
+   8,
+   10,
+   12,
+   15,
+   16,
+   17,
+   22,
+   31,
+   38,
+   40,
+   46,
+   48
+  ],
+  [
+   11,
+   14,
+   24,
+   32,
+   37,
+   39
+  ],
+  [
+   19,
+   20,
+   25,
+   26,
+   34,
+   35
+  ]
+ ],
+ "results": [
+  {
+   "drop": 0,
+   "support": [
+    1,
+    2,
+    3,
+    5
+   ],
+   "directions": 616,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 96,
+    "12": 128,
+    "13": 64,
+    "19": 128
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 32,
+     "upper_bound": 32
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 32,
+     "upper_bound": 32
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 51
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 72,
+     "upper_bound": 72
+    }
+   },
+   "terms": {
+    "m=0": 176,
+    "m=1": 164,
+    "m=2": 171,
+    "m>=3": 172
+   },
+   "layer_bound": 176,
+   "seconds": 326.1,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 32,
+      "upper_bound": 32
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 32,
+      "upper_bound": 32
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 48
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 72,
+      "upper_bound": 72
+     }
+    },
+    "terms": {
+     "m=0": 176,
+     "m=1": 164,
+     "m=2": 168,
+     "m>=3": 172
+    },
+    "layer_bound": 176,
+    "networkx": {
+     "w0": 32,
+     "w_all": 72
+    }
+   }
+  },
+  {
+   "drop": 1,
+   "support": [
+    0,
+    3,
+    4,
+    5
+   ],
+   "directions": 328,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 64,
+    "13": 64
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 26,
+     "upper_bound": 26
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 26,
+     "upper_bound": 26
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 48
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 64,
+     "upper_bound": 64
+    }
+   },
+   "terms": {
+    "m=0": 170,
+    "m=1": 158,
+    "m=2": 168,
+    "m>=3": 164
+   },
+   "layer_bound": 170,
+   "seconds": 347.3,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 26,
+      "upper_bound": 26
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 26,
+      "upper_bound": 26
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 43
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 64,
+      "upper_bound": 64
+     }
+    },
+    "terms": {
+     "m=0": 170,
+     "m=1": 158,
+     "m=2": 163,
+     "m>=3": 164
+    },
+    "layer_bound": 170,
+    "networkx": {
+     "w0": 26,
+     "w_all": null
+    }
+   }
+  },
+  {
+   "drop": 4,
+   "support": [
+    2,
+    3,
+    4,
+    7
+   ],
+   "directions": 648,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 64,
+    "12": 64,
+    "13": 64,
+    "19": 256
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 32,
+     "upper_bound": 32
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 34,
+     "upper_bound": 34
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 42,
+     "upper_bound": 51
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 72,
+     "upper_bound": 72
+    }
+   },
+   "terms": {
+    "m=0": 176,
+    "m=1": 166,
+    "m=2": 171,
+    "m>=3": 172
+   },
+   "layer_bound": 176,
+   "seconds": 266.6,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 32,
+      "upper_bound": 32
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 34,
+      "upper_bound": 34
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 40,
+      "upper_bound": 50
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 72,
+      "upper_bound": 72
+     }
+    },
+    "terms": {
+     "m=0": 176,
+     "m=1": 166,
+     "m=2": 170,
+     "m>=3": 172
+    },
+    "layer_bound": 176,
+    "networkx": {
+     "w0": null,
+     "w_all": 72
+    }
+   }
+  },
+  {
+   "drop": 5,
+   "support": [
+    0,
+    2,
+    5,
+    7
+   ],
+   "directions": 456,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 64,
+    "12": 128,
+    "13": 64
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 32,
+     "upper_bound": 32
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 32,
+     "upper_bound": 32
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 48
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 64,
+     "upper_bound": 64
+    }
+   },
+   "terms": {
+    "m=0": 176,
+    "m=1": 164,
+    "m=2": 168,
+    "m>=3": 164
+   },
+   "layer_bound": 176,
+   "seconds": 267.2,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 32,
+      "upper_bound": 32
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 32,
+      "upper_bound": 32
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 45
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 64,
+      "upper_bound": 64
+     }
+    },
+    "terms": {
+     "m=0": 176,
+     "m=1": 164,
+     "m=2": 165,
+     "m>=3": 164
+    },
+    "layer_bound": 176,
+    "networkx": {
+     "w0": 32,
+     "w_all": null
+    }
+   }
+  },
+  {
+   "drop": 8,
+   "support": [
+    0,
+    2,
+    3,
+    8
+   ],
+   "directions": 424,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 96,
+    "12": 64,
+    "13": 64
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 28,
+     "upper_bound": 28
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 28,
+     "upper_bound": 33
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 50
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 72,
+     "upper_bound": 72
+    }
+   },
+   "terms": {
+    "m=0": 172,
+    "m=1": 165,
+    "m=2": 170,
+    "m>=3": 172
+   },
+   "layer_bound": 172,
+   "seconds": 404.2,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 28,
+      "upper_bound": 28
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 28,
+      "upper_bound": 29
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 46
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 72,
+      "upper_bound": 72
+     }
+    },
+    "terms": {
+     "m=0": 172,
+     "m=1": 161,
+     "m=2": 166,
+     "m>=3": 172
+    },
+    "layer_bound": 172,
+    "networkx": {
+     "w0": 28,
+     "w_all": 72
+    }
+   }
+  },
+  {
+   "drop": 11,
+   "support": [
+    0,
+    1,
+    7,
+    8
+   ],
+   "directions": 328,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 64,
+    "13": 64
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 26,
+     "upper_bound": 26
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 26,
+     "upper_bound": 26
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 48
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 64,
+     "upper_bound": 64
+    }
+   },
+   "terms": {
+    "m=0": 170,
+    "m=1": 158,
+    "m=2": 168,
+    "m>=3": 164
+   },
+   "layer_bound": 170,
+   "seconds": 279.5,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 26,
+      "upper_bound": 26
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 26,
+      "upper_bound": 29
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 44
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 64,
+      "upper_bound": 64
+     }
+    },
+    "terms": {
+     "m=0": 170,
+     "m=1": 161,
+     "m=2": 164,
+     "m>=3": 164
+    },
+    "layer_bound": 170,
+    "networkx": {
+     "w0": 26,
+     "w_all": null
+    }
+   }
+  },
+  {
+   "drop": 19,
+   "support": [
+    3,
+    5,
+    8,
+    9
+   ],
+   "directions": 392,
+   "norm_squared_counts": {
+    "1": 24,
+    "3": 160,
+    "4": 16,
+    "7": 64,
+    "12": 64,
+    "13": 64
+   },
+   "forbidders": 224,
+   "cpsat": {
+    "w0": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 28,
+     "upper_bound": 28
+    },
+    "w1": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 28,
+     "upper_bound": 31
+    },
+    "w2": {
+     "solver": "CP-SAT",
+     "status": "FEASIBLE",
+     "found": 38,
+     "upper_bound": 48
+    },
+    "w_all": {
+     "solver": "CP-SAT",
+     "status": "OPTIMAL",
+     "found": 64,
+     "upper_bound": 64
+    }
+   },
+   "terms": {
+    "m=0": 172,
+    "m=1": 163,
+    "m=2": 168,
+    "m>=3": 164
+   },
+   "layer_bound": 172,
+   "seconds": 403.8,
+   "cross_check": {
+    "highs": {
+     "w0": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 28,
+      "upper_bound": 28
+     },
+     "w1": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 28,
+      "upper_bound": 28
+     },
+     "w2": {
+      "solver": "HiGHS",
+      "status": 1,
+      "found": 38,
+      "upper_bound": 45
+     },
+     "w_all": {
+      "solver": "HiGHS",
+      "status": 0,
+      "found": 64,
+      "upper_bound": 64
+     }
+    },
+    "terms": {
+     "m=0": 172,
+     "m=1": 160,
+     "m=2": 165,
+     "m>=3": 164
+    },
+    "layer_bound": 172,
+    "networkx": {
+     "w0": 28,
+     "w_all": null
+    }
+   }
+  }
+ ],
+ "worst_layer_bound": 176,
+ "covers_all_orbits": true,
+ "proved": true,
+ "cross_check_agrees": true
+}

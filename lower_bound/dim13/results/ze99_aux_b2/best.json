@@ -1,0 +1,9 @@
+{
+  "beats_record": false,
+  "configuration": "best_exact_1154.json",
+  "count": 1154,
+  "dimension": 13,
+  "family_proven_optimal": true,
+  "max_off_diagonal_unit": "1/2",
+  "record": 1154
+}
